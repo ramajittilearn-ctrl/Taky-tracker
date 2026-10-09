@@ -205,18 +205,35 @@
       document.getElementById('unlockButton').style.display = unlocked ? 'none' : '';
       document.querySelectorAll('.track input').forEach(el => { el.disabled = !unlocked; });
     }
-    function askPin(){
+    // verify(pin) -> error message string, or null if the PIN is accepted
+    function askPin(verify){
       return new Promise(resolve => {
-        const modal = document.getElementById('pinModal'), input = document.getElementById('pinInput'), form = document.getElementById('pinForm');
-        document.getElementById('pinMsg').textContent = '';
+        const modal = document.getElementById('pinModal'), input = document.getElementById('pinInput'), form = document.getElementById('pinForm'), msg = document.getElementById('pinMsg');
+        msg.textContent = '';
         input.value = ''; modal.classList.add('open'); input.focus();
         const done = v => { modal.classList.remove('open'); form.onsubmit = null; document.getElementById('pinCancel').onclick = null; resolve(v); };
-        form.onsubmit = e => { e.preventDefault(); done(input.value.trim() || null); };
+        form.onsubmit = async e => {
+          e.preventDefault();
+          const pin = input.value.trim();
+          if (!pin) return done(null);
+          const err = await verify(pin);
+          if (err) { msg.textContent = err; input.value = ''; input.focus(); return; }
+          done(pin);
+        };
         document.getElementById('pinCancel').onclick = () => done(null);
       });
     }
+    async function verifyPin(pin){
+      try {
+        const res = await fetch('/api/check-pin', {method: 'POST', headers: {'X-Edit-Pin': pin}});
+        if (res.ok) return null;
+        if (res.status === 401) return MSG_WRONG;
+        if (res.status === 429) return MSG_LIMIT;
+        return 'ตรวจ PIN ไม่สำเร็จ / Could not verify PIN';
+      } catch (_) { return 'ตรวจ PIN ไม่สำเร็จ / Could not verify PIN'; }
+    }
     async function unlock(){
-      const pin = await askPin();
+      const pin = await askPin(verifyPin);
       if (!pin) return false;
       sessionStorage.setItem('trackerPin', pin);
       applyLock();

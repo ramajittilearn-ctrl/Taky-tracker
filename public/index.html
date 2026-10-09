@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta name="robots" content="noindex">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project Milestone Tracker - หอพัก 3 ชั้น คุณต๊ะ</title>
+  <style>
+    :root{--ink:#17253a;--muted:#66758a;--navy:#153c61;--blue:#e8f3fc;--blue2:#2c75a8;--green:#167a50;--greenbg:#e8f7ef;--amber:#9b6514;--amberbg:#fff5e4;--red:#b34545;--redbg:#fff0f0;--line:#d8e1eb;--bg:#f2f6fa;--card:#fff}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:"Sarabun","Noto Sans Thai",system-ui,sans-serif;line-height:1.55}
+    .wrap{max-width:1180px;margin:auto;padding:28px 20px 56px}.hero{background:linear-gradient(125deg,#102d4a,#216596);color:#fff;border-radius:20px;padding:30px 32px;box-shadow:0 13px 35px #12365722}.hero h1{font-size:clamp(1.7rem,3.7vw,2.45rem);line-height:1.2;margin:0 0 8px}.hero p{margin:0;color:#dbeafa}.stamp{margin-top:16px;display:inline-block;border:1px solid #8fbbd6;border-radius:999px;padding:5px 11px;font-size:.9rem}
+    .top-grid{display:grid;grid-template-columns:1.25fr repeat(3,1fr);gap:14px;margin:18px 0}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:17px;box-shadow:0 3px 12px #1e38530a}.label,.hint{color:var(--muted);font-size:.88rem}.value{font-size:1.42rem;line-height:1.2;font-weight:700;margin-top:5px}.amber{background:var(--amberbg);border-color:#efd296}.amber .value{color:#8b5b0b}.section{margin-top:24px}.section h2{font-size:1.32rem;margin:0 0 10px}.section-intro{margin:0 0 14px;color:var(--muted)}
+    .progress-shell{background:#e7edf3;border-radius:999px;overflow:hidden;height:13px}.progress{height:100%;width:0;background:linear-gradient(90deg,#23885c,#52b884);transition:width .25s ease}.progress-info{display:flex;justify-content:space-between;gap:12px;margin:8px 0 0;font-size:.9rem;color:var(--muted)}
+    .phase{margin-top:20px}.phase-header{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding-bottom:8px;border-bottom:2px solid var(--line)}.phase-header h3{margin:0;font-size:1.1rem}.phase-sum{color:var(--muted);font-size:.9rem;white-space:nowrap}.milestone{display:grid;grid-template-columns:74px 1fr 125px 156px;gap:14px;align-items:start;padding:17px 5px;border-bottom:1px solid var(--line)}.milestone:last-child{border-bottom:0}.number{font-weight:700;color:var(--blue2);font-size:1.05rem}.work{font-weight:650;margin:0 0 4px}.details{margin:0;padding-left:20px;font-size:.93rem}.details li{margin:2px 0}.payment{text-align:right;font-variant-numeric:tabular-nums}.payment strong{font-size:1.05rem;display:block}.payment span{font-size:.85rem;color:var(--muted)}
+    .track{display:grid;gap:8px}.state{display:flex;align-items:center;gap:7px;font-size:.9rem;font-weight:600}.state input{width:17px;height:17px;accent-color:var(--green);margin:0}.track label{font-size:.8rem;color:var(--muted)}.track input[type="date"],.track input[type="text"]{width:100%;border:1px solid var(--line);border-radius:7px;padding:6px 7px;color:var(--ink);font:inherit;font-size:.83rem;background:#fff}.track input[type="text"]{min-width:0}.done .number,.done .work{color:var(--green)}.done{background:linear-gradient(90deg,var(--greenbg),transparent 66%)}
+    .statusline{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}.badge{font-size:.8rem;padding:2px 8px;border-radius:999px;background:var(--blue);color:#245e8e}.badge.paid{background:var(--greenbg);color:#176645}.badge.wait{background:var(--amberbg);color:#875a0d}.badge.pending{background:#edf1f5;color:#566579}.tools{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:15px 0}.tools p{margin:0;color:var(--muted);font-size:.88rem}.button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 11px;font:inherit;color:var(--ink);cursor:pointer}.button:hover{background:#f5f8fb}.button.primary{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:600;padding:9px 18px}.button.primary:hover{background:#1a4a75}.save-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:18px 0 6px;padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:12px}.save-status{color:var(--green);font-size:.9rem;font-weight:600;min-height:1.2em}.alert{border-left:5px solid #dea02d;background:var(--amberbg);border-radius:10px;padding:14px 16px}.alert p{margin:0}.alert strong{color:#855a0a}
+    .tablewrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.92rem}th,td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}th{color:#4b5e73;background:#f7f9fc}.right{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.foot{color:var(--muted);font-size:.86rem;margin-top:24px}.source{font-size:.87rem;color:var(--muted);margin-top:10px}
+    @media(max-width:860px){.top-grid{grid-template-columns:repeat(2,1fr)}.top-grid .card:first-child{grid-column:span 2}.milestone{grid-template-columns:62px 1fr 125px}.track{grid-column:2 / -1;grid-template-columns:1fr 130px 1fr;align-items:end}.state{grid-column:1 / -1}}@media(max-width:570px){.wrap{padding:15px 10px 38px}.hero{padding:23px 19px;border-radius:14px}.top-grid{grid-template-columns:1fr}.top-grid .card:first-child{grid-column:auto}.milestone{grid-template-columns:50px 1fr;gap:10px;padding:15px 1px}.payment{grid-column:2;text-align:left;display:flex;gap:8px;align-items:baseline}.payment strong{display:inline}.track{grid-column:2;grid-template-columns:1fr}.phase-header{align-items:flex-start;flex-direction:column;gap:2px}.progress-info{flex-direction:column;gap:2px}}
+        .pinmodal{position:fixed;inset:0;background:#10253a99;display:none;align-items:center;justify-content:center;z-index:50;padding:16px}.pinmodal.open{display:flex}.pinbox{background:#fff;border-radius:14px;padding:22px;max-width:340px;width:100%;box-shadow:0 13px 35px #12365744}.pinbox h3{margin:0 0 6px}.pinbox input{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px;font:inherit;font-size:1.1rem;letter-spacing:.2em;margin:10px 0}.pinbox .row{display:flex;gap:8px;justify-content:flex-end}.pinmsg{color:var(--red);font-size:.88rem;min-height:1.2em}.readonly-note{color:var(--muted);font-size:.88rem}.locked #saveButton,.locked #resetButton{display:none}.track input:disabled{background:#f2f5f8;cursor:not-allowed}
+    @media print{body{background:#fff}.wrap{max-width:none;padding:0}.hero{border-radius:0;box-shadow:none}.track,.tools,.save-bar{display:none}.milestone{grid-template-columns:65px 1fr 125px}.statusline{display:none}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <h1>Project Milestone Tracker</h1>
+      <p>โครงการก่อสร้างหอพัก คสล. 3 ชั้น 15 ห้อง · คูคต ลำลูกกา ปทุมธานี</p>
+      <span class="stamp" id="heroStamp">สถานะ ณ 6 ตุลาคม 2569 · ชำระงวด 1 และ 1.1 แล้ว</span>
+    </header>
+
+    <section class="top-grid" aria-label="สรุปโครงการ">
+      <article class="card amber"><div class="label">สถานะปัจจุบัน</div><div class="value" id="statusValue">พร้อมเริ่มงวด 2 · ตอกเสาเข็ม</div><div class="statusline" id="statusBadges"><span class="badge paid">งวด 1 จ่ายแล้ว</span><span class="badge paid">งวด 1.1 จ่ายแล้ว</span></div></article>
+      <article class="card"><div class="label">มูลค่าสัญญา</div><div class="value">3,950,000 บาท</div></article>
+      <article class="card"><div class="label">จ่ายแล้ว</div><div class="value" id="paidValue">395,000 บาท</div><div class="hint" id="paidPercent">10% ของสัญญา</div></article>
+      <article class="card"><div class="label">Milestone ปิดแล้ว</div><div class="value" id="doneValue">2 / 18</div><div class="hint">แก้ไขแล้วกดบันทึกด้านล่าง</div></article>
+    </section>
+
+    <section class="section card">
+      <h2>ความคืบหน้า Milestone</h2>
+      <div class="progress-shell" aria-label="ความคืบหน้าตามมูลค่างวด"><div class="progress" id="progressBar"></div></div>
+      <div class="progress-info"><span id="progressLabel">จ่ายแล้ว 395,000 บาท</span><span id="progressPercent">10% ของมูลค่าสัญญา</span></div>
+      <p class="source">ติ๊ก “ตรวจรับครบ” แล้วกดปุ่ม “บันทึกการเปลี่ยนแปลง” เพื่อบันทึกลงเซิร์ฟเวอร์ (ใช้ได้ทุกเครื่อง) ยอดและความคืบหน้าจะอัปเดตตามมูลค่างวด</p>
+    </section>
+
+    <section class="section">
+      <h2>ตารางงวดงานละเอียดตามสัญญา</h2>
+      <p class="section-intro">ตรวจรับตามรายการในงวดก่อนเปลี่ยนสถานะเป็น “ตรวจรับครบ” และแนบวันที่/บันทึกหน้างานไว้ในช่องของแต่ละงวด</p>
+      <div class="tools"><p>งวดที่ 1 และ 1.1 ถูกตั้งเป็น “ตรวจรับครบ/จ่ายแล้ว” ตามข้อมูลที่ยืนยันล่าสุด</p><button class="button" type="button" id="resetButton">รีเซ็ตข้อมูลติดตามในหน้านี้</button></div>
+      <div id="milestoneList"></div>
+      <div class="save-bar">
+        <button class="button" type="button" id="unlockButton">🔒 ใส่ PIN เพื่อแก้ไข / Enter PIN to edit</button>
+        <button class="button primary" type="button" id="saveButton">บันทึกการเปลี่ยนแปลง</button>
+        <span class="save-status" id="saveStatus" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <div class="pinmodal" id="pinModal" role="dialog" aria-modal="true"><form class="pinbox" id="pinForm"><h3>ใส่ PIN เพื่อแก้ไข / Enter edit PIN</h3><div class="hint">ผู้ชมดูได้อย่างเดียว / Viewers are read-only</div><input id="pinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="32" aria-label="PIN"><div class="pinmsg" id="pinMsg"></div><div class="row"><button class="button" type="button" id="pinCancel">ยกเลิก / Cancel</button><button class="button primary" type="submit">ตกลง / OK</button></div></form></div>
+
+    <section class="section card">
+      <h2>สรุปการเบิกจ่ายตามสัญญา</h2>
+      <div class="tablewrap"><table><thead><tr><th>งวด</th><th>สัดส่วน</th><th class="right">จำนวนเงิน (บาท)</th><th>เงื่อนไขปิดงวดโดยสรุป</th></tr></thead><tbody id="paymentTable"></tbody><tfoot><tr><th>รวม</th><th>100%</th><th class="right">3,950,000</th><th>18 milestone รวมงวด 1.1</th></tr></tfoot></table></div>
+    </section>
+
+    <section class="section alert"><p id="nextAlert"><strong>จุดติดตามถัดไป:</strong> งวด 1 และ 1.1 ชำระแล้ว — เข้าสู่งวด 2: ตีผัง วางหมุด ขนและตอกเสาเข็มครบตามรายการ</p></section>
+    <p class="foot">อ้างอิง: สัญญาว่าจ้างก่อสร้างหอพัก 3 ชั้น - คุณต๊ะ Rev.01.pdf และ งวดงาน คุณต๊ะ Rev.01.pdf · รายการนี้เป็นเครื่องมือบันทึกติดตาม ไม่แทนการตรวจรับโดยวิศวกร/ผู้ควบคุมงาน</p>
+  </main>
+
+  <script>
+    const milestones = [
+      {id:'1',phase:'1. ก่อนเริ่มงาน',pct:5,amount:197500,status:'paid',title:'ทำสัญญาว่าจ้าง / ออกแบบ เขียนแบบ เพื่อขออนุญาตก่อสร้าง',items:['ตกลงเซ็นสัญญาว่าจ้างก่อสร้างอาคาร','ออกแบบและเขียนแบบเพื่อขออนุญาตก่อสร้าง']},
+      {id:'1.1',phase:'1. ก่อนเริ่มงาน',pct:5,amount:197500,status:'paid',title:'ใบอนุญาตก่อสร้าง / อนุญาตให้เริ่มงาน',items:['ได้รับใบอนุญาตก่อสร้าง (อ.1) เรียบร้อยแล้ว','หรือเทศบาลอนุญาตให้เริ่มทำงานได้ โดยไม่ต้องรอใบอนุญาตก่อสร้าง (อ.1)']},
+      {id:'2',phase:'2. ฐานรากและโครงสร้าง',pct:5,amount:197500,title:'เตรียมและตอกเสาเข็ม',items:['ช่างเข้าหน้างาน','ตีผัง วางหมุด','เสาเข็มเข้าหน้างาน พร้อมตอกแล้วเสร็จ']},
+      {id:'3',phase:'2. ฐานรากและโครงสร้าง',pct:6,amount:237000,title:'ฟุตติ้ง ตอม่อ และระบบใต้ดิน',items:['งานตัดเสาเข็ม ฟุตติ้ง ตอม่อ แล้วเสร็จ 100%','วางถังบำบัดน้ำเสีย และวางท่อระบายน้ำด้านหลังแล้วเสร็จ']},
+      {id:'4',phase:'2. ฐานรากและโครงสร้าง',pct:6,amount:237000,title:'คานคอดินและพื้นชั้น 1',items:['งานคานคอดิน วางแผ่นพื้นสำเร็จรูป','เทคอนกรีตทับหน้าพื้นชั้น 1 แล้วเสร็จ 100%']},
+      {id:'5',phase:'2. ฐานรากและโครงสร้าง',pct:6,amount:237000,title:'เสา คาน และพื้นชั้น 2',items:['ตั้งเสารับชั้น 2 แล้วเสร็จ 100%','เทคานชั้น 2 วางแผ่นพื้นสำเร็จรูป และเทคอนกรีตทับหน้าพื้นชั้น 2 แล้วเสร็จ 100%']},
+      {id:'6',phase:'2. ฐานรากและโครงสร้าง',pct:6,amount:237000,title:'เสา คาน และพื้นชั้น 3',items:['ตั้งเสารับชั้น 3 แล้วเสร็จ 100%','เทคานชั้น 3 วางแผ่นพื้นสำเร็จรูป และเทคอนกรีตทับหน้าพื้นชั้น 3 แล้วเสร็จ 100%','งานบันไดชั้น 1 ขึ้นชั้น 2 แล้วเสร็จ 100%']},
+      {id:'7',phase:'2. ฐานรากและโครงสร้าง',pct:6,amount:237000,title:'โครงสร้างหลังคาและบันไดชั้น 2–3',items:['ตั้งเสารับโครงหลังคา และโครงสร้างฐานวางแท็งก์น้ำแล้วเสร็จ 100%','งานบันไดชั้น 2 ขึ้นชั้น 3 แล้วเสร็จ 100%']},
+      {id:'8',phase:'3. หลังคา ก่อ ฉาบ และระบบฝัง',pct:6,amount:237000,title:'หลังคาและงานชั้น 1 ระยะที่ 1',items:['งานบันไดขึ้นดาดฟ้าแล้วเสร็จ 100%','เหล็กโครงหลังคาพร้อมมุงหลังคาแล้วเสร็จ 85%','ก่ออิฐและเสาเอ็นทับหลังชั้น 1 แล้วเสร็จ 85%','ติดตั้งวงกบประตูไม้ชั้น 1 แล้วเสร็จ 85%','เดินท่อไฟฟ้า PVC ชั้น 1 แล้วเสร็จ 85%']},
+      {id:'9',phase:'3. หลังคา ก่อ ฉาบ และระบบฝัง',pct:6,amount:237000,title:'งานก่อและไฟฟ้าชั้น 2',items:['ก่ออิฐและเสาเอ็นทับหลังชั้น 2 แล้วเสร็จ 85%','ติดตั้งวงกบไม้ชั้น 2 แล้วเสร็จ 85%','เดินท่อไฟฟ้า PVC ชั้น 2 แล้วเสร็จ 85%']},
+      {id:'10',phase:'3. หลังคา ก่อ ฉาบ และระบบฝัง',pct:5,amount:197500,title:'งานก่อชั้น 3 ฉาบชั้น 1 และระบบฝัง',items:['ก่ออิฐและเสาเอ็นทับหลังชั้น 3 แล้วเสร็จ 85%','ติดตั้งวงกบไม้ชั้น 3 แล้วเสร็จ 85%','ฉาบภายในชั้น 1 แล้วเสร็จ 85%','เดินท่อประปาน้ำดีส่วนผนังห้องน้ำชั้น 1–2 แล้วเสร็จ 85%','เดินท่อไฟฟ้า PVC ชั้น 3 แล้วเสร็จ 85%']},
+      {id:'11',phase:'3. หลังคา ก่อ ฉาบ และระบบฝัง',pct:5,amount:197500,title:'ฉาบและระบบน้ำชั้น 2–3',items:['ฉาบภายในชั้น 2 แล้วเสร็จ 85%','ทาสีรองพื้นภายในชั้น 1 แล้วเสร็จ 85%','เดินท่อประปาน้ำดีส่วนผนังห้องน้ำชั้น 3 แล้วเสร็จ 85%','เดินท่อประปาน้ำดี-น้ำเสียส่วนห้องน้ำชั้น 2–3 แล้วเสร็จ 85%']},
+      {id:'12',phase:'3. หลังคา ก่อ ฉาบ และระบบฝัง',pct:5,amount:197500,title:'ฉาบภายนอก สายไฟ และระบบน้ำ',items:['ทาสีรองพื้นภายในชั้น 2 แล้วเสร็จ 85%','ฉาบภายนอกทั้งหมดแล้วเสร็จ 50%','เดินสายไฟฟ้าย่อยแล้วเสร็จ 70%','เดินท่อประปาน้ำดี-น้ำเสียส่วนห้องน้ำชั้น 1 แล้วเสร็จ 85%']},
+      {id:'13',phase:'4. กระเบื้อง ประตู สุขภัณฑ์ และสี',pct:5,amount:197500,title:'กระเบื้องและวงกบ PVC ชั้น 1',items:['ปูกระเบื้องภายในห้องชั้น 1 แล้วเสร็จ 80%','ปูกระเบื้องห้องน้ำชั้น 1 แล้วเสร็จ 50%','ติดตั้งวงกบ PVC ชั้น 1 แล้วเสร็จ 85%','ฉาบภายนอกแล้วเสร็จ 85%']},
+      {id:'14',phase:'4. กระเบื้อง ประตู สุขภัณฑ์ และสี',pct:5,amount:197500,title:'กระเบื้องชั้น 2 และระบบประปา',items:['ติดตั้งวงกบ PVC ชั้น 2 แล้วเสร็จ 85%','ทาสีรองพื้นภายนอกแล้วเสร็จ 50%','ปูกระเบื้องภายในห้องชั้น 2 แล้วเสร็จ 80%','ปูกระเบื้องห้องน้ำชั้น 1 แล้วเสร็จ 85%','เดินท่อประปาน้ำดี-น้ำเสียทั้งหมดแล้วเสร็จ 90%']},
+      {id:'15',phase:'4. กระเบื้อง ประตู สุขภัณฑ์ และสี',pct:5,amount:197500,title:'ประตู กระเบื้อง และสุขภัณฑ์',items:['ติดตั้งบานประตู PVC ชั้น 3 แล้วเสร็จ 85%','ปูกระเบื้องภายในห้องชั้น 3 แล้วเสร็จ 85%','ปูกระเบื้องห้องน้ำชั้น 2 แล้วเสร็จ 80%','ปูกระเบื้องบันไดแล้วเสร็จ 50%','ติดตั้งสุขภัณฑ์ชั้น 1 แล้วเสร็จ 85%']},
+      {id:'16',phase:'4. กระเบื้อง ประตู สุขภัณฑ์ และสี',pct:8,amount:316000,title:'งานตกแต่งและสุขภัณฑ์ระยะท้าย',items:['ปูกระเบื้องบันไดแล้วเสร็จ 85%','ปูกระเบื้องห้องน้ำชั้น 3 แล้วเสร็จ 85%','ติดตั้งประตู PVC ทั้งหมดแล้วเสร็จ 85%','ปูกระเบื้องทางเดินทั้งหมดแล้วเสร็จ 85%','ติดตั้งสุขภัณฑ์ชั้น 2–3 แล้วเสร็จ 85%','ทาสีจริงภายในรอบแรกแล้วเสร็จ 85%','ทาสีจริงภายนอกรอบแรกแล้วเสร็จ 50%']},
+      {id:'17',phase:'5. ส่งมอบและเก็บงาน',pct:5,amount:197500,title:'ส่งมอบอาคารครบ 100%',items:['ติดตั้งดวงโคม ตู้มิเตอร์ไฟ ตู้คอนซูมเมอร์ ปลั๊ก สวิตช์ทั้งหมดแล้วเสร็จ 100%','ติดตั้งประตู หน้าต่างอลูมิเนียมทั้งหมดแล้วเสร็จ 100%','ทาสีจริงแล้วเสร็จทั้งหมด 100%','งานระบบไฟฟ้าทั้งหมดแล้วเสร็จ 100%','ติดตั้งถังเก็บน้ำ ปั๊ม เดินสายเมนประปา และติดตั้งถังบำบัดแล้วเสร็จ','เก็บรายละเอียดและงานส่วนที่เหลือทั้งหมดแล้วเสร็จ 100%']}
+    ];
+    const API = '/api/milestones';
+    const defaults = {
+      '1': {done:true,date:'2026-09-06',note:'ชำระงวด 1 แล้ว'},
+      '1.1': {done:true,date:'2026-10-06',note:'ชำระงวด 1.1 แล้ว'}
+    };
+    const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+    let records = {...defaults};
+    const money = n => new Intl.NumberFormat('th-TH').format(n);
+    function phaseTotals(items){return items.reduce((s,x)=>s+x.amount,0)}
+    function escapeHtml(v){return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+    function formatThaiDate(iso){
+      const d = iso ? new Date(iso + 'T12:00:00') : new Date();
+      if (Number.isNaN(d.getTime())) return formatThaiDate(null);
+      return `${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`;
+    }
+    function mergeRecords(incoming){
+      const base = {...defaults};
+      if (!incoming || typeof incoming !== 'object') return base;
+      for (const [id, rec] of Object.entries(incoming)) {
+        if (!rec || typeof rec !== 'object') continue;
+        base[id] = {
+          done: !!rec.done,
+          date: typeof rec.date === 'string' ? rec.date : (base[id]?.date || ''),
+          note: typeof rec.note === 'string' ? rec.note : (base[id]?.note || '')
+        };
+      }
+      return base;
+    }
+    function setSaveStatus(text, kind){
+      const st = document.getElementById('saveStatus');
+      st.textContent = text;
+      st.style.color = kind === 'error' ? 'var(--red)' : kind === 'warn' ? 'var(--amber)' : 'var(--green)';
+    }
+    function completedList(){ return milestones.filter(m => records[m.id]?.done); }
+    function nextOpen(){ return milestones.find(m => !records[m.id]?.done) || null; }
+    function latestCompletedDate(){
+      const done = completedList();
+      if (!done.length) return null;
+      let best = null;
+      for (const m of done) {
+        const ds = records[m.id]?.date;
+        if (ds && (!best || ds > best)) best = ds;
+      }
+      return best;
+    }
+    function joinThaiIds(ids){
+      if (!ids.length) return '';
+      if (ids.length === 1) return ids[0];
+      if (ids.length === 2) return ids[0] + ' และ ' + ids[1];
+      return ids.slice(0, -1).join(', ') + ' และ ' + ids[ids.length - 1];
+    }
+    function shortTitle(m){
+      if (!m) return '';
+      if (m.id === '2') return 'ตอกเสาเข็ม';
+      const t = m.title || '';
+      return t.length > 28 ? t.slice(0, 28) + '…' : t;
+    }
+    function updateStatusHeader(){
+      const done = completedList();
+      const next = nextOpen();
+      const paidIds = done.map(m => m.id);
+      const dateStr = formatThaiDate(latestCompletedDate());
+      let stampPaid = '';
+      if (paidIds.length) stampPaid = ' · ชำระงวด ' + joinThaiIds(paidIds) + ' แล้ว';
+      else stampPaid = ' · ยังไม่มีการชำระงวด';
+      document.getElementById('heroStamp').textContent = 'สถานะ ณ ' + dateStr + stampPaid;
+
+      const statusEl = document.getElementById('statusValue');
+      const badgesEl = document.getElementById('statusBadges');
+      if (next) {
+        statusEl.textContent = 'พร้อมเริ่มงวด ' + next.id + ' · ' + shortTitle(next);
+      } else {
+        statusEl.textContent = 'ปิดครบทุกงวดแล้ว';
+      }
+      badgesEl.innerHTML = paidIds.map(id => '<span class="badge paid">งวด ' + id + ' จ่ายแล้ว</span>').join('') || '<span class="badge pending">ยังไม่เริ่ม</span>';
+
+      const alertEl = document.getElementById('nextAlert');
+      if (next) {
+        const paidPhrase = paidIds.length ? 'งวด ' + joinThaiIds(paidIds) + ' ชำระแล้ว — เข้าสู่งวด ' + next.id + ': ' : 'เข้าสู่งวด ' + next.id + ': ';
+        const detail = (next.items && next.items.length) ? next.items.join(' ') : next.title;
+        alertEl.innerHTML = '<strong>จุดติดตามถัดไป:</strong> ' + escapeHtml(paidPhrase + detail);
+      } else {
+        alertEl.innerHTML = '<strong>จุดติดตามถัดไป:</strong> ปิดครบทุกงวดตามสัญญาแล้ว';
+      }
+    }
+    function updateTotals(){
+      const completed = completedList(), paid = completed.reduce((s,m)=>s+m.amount,0), pct = paid/3950000*100;
+      document.getElementById('paidValue').textContent = `${money(paid)} บาท`;
+      document.getElementById('paidPercent').textContent = `${pct.toFixed(0)}% ของสัญญา`;
+      document.getElementById('doneValue').textContent = `${completed.length} / ${milestones.length}`;
+      document.getElementById('progressBar').style.width = `${pct}%`;
+      document.getElementById('progressLabel').textContent = `ปิดงวดแล้ว ${money(paid)} บาท`;
+      document.getElementById('progressPercent').textContent = `${pct.toFixed(1)}% ของมูลค่าสัญญา`;
+      updateStatusHeader();
+    }
+    function applyDoneClass(id){
+      const article = document.querySelector(`.milestone [data-id="${id}"][data-field="done"]`)?.closest('.milestone');
+      if (!article) return;
+      const done = !!records[id]?.done;
+      article.classList.toggle('done', done);
+    }
+    function onFieldChange(e){
+      const {id, field} = e.target.dataset;
+      if (!id || !field) return;
+      records[id] ??= {};
+      records[id][field] = field === 'done' ? e.target.checked : e.target.value;
+      if (field === 'done') applyDoneClass(id);
+      updateTotals();
+      setSaveStatus('ยังไม่ได้บันทึก', 'warn');
+    }
+    const MSG_WRONG = 'PIN ไม่ถูกต้อง / Wrong PIN';
+    const MSG_LIMIT = 'ลองผิดเกินกำหนด รอสักครู่ / Too many wrong PINs, try later';
+    const getPin = () => sessionStorage.getItem('trackerPin');
+    function applyLock(){
+      const unlocked = !!getPin();
+      document.body.classList.toggle('locked', !unlocked);
+      document.getElementById('unlockButton').style.display = unlocked ? 'none' : '';
+      document.querySelectorAll('.track input').forEach(el => { el.disabled = !unlocked; });
+    }
+    function askPin(){
+      return new Promise(resolve => {
+        const modal = document.getElementById('pinModal'), input = document.getElementById('pinInput'), form = document.getElementById('pinForm');
+        document.getElementById('pinMsg').textContent = '';
+        input.value = ''; modal.classList.add('open'); input.focus();
+        const done = v => { modal.classList.remove('open'); form.onsubmit = null; document.getElementById('pinCancel').onclick = null; resolve(v); };
+        form.onsubmit = e => { e.preventDefault(); done(input.value.trim() || null); };
+        document.getElementById('pinCancel').onclick = () => done(null);
+      });
+    }
+    async function unlock(){
+      const pin = await askPin();
+      if (!pin) return false;
+      sessionStorage.setItem('trackerPin', pin);
+      applyLock();
+      return true;
+    }
+    document.getElementById('unlockButton').addEventListener('click', unlock);
+    async function saveToServer(){
+      if (!getPin() && !(await unlock())) throw new Error('no_pin');
+      const res = await fetch(API, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json', 'X-Edit-Pin': getPin()},
+        body: JSON.stringify({ records })
+      });
+      if (res.status === 401 || res.status === 429) {
+        if (res.status === 401) { sessionStorage.removeItem('trackerPin'); applyLock(); }
+        const err = new Error('save_failed_' + res.status); err.userMsg = res.status === 401 ? MSG_WRONG : MSG_LIMIT; throw err;
+      }
+      if (!res.ok) throw new Error('save_failed_' + res.status);
+      const data = await res.json();
+      if (data.records) records = mergeRecords(data.records);
+      return data;
+    }
+    async function loadFromServer(){
+      setSaveStatus('กำลังโหลด…', 'warn');
+      const res = await fetch(API);
+      if (!res.ok) throw new Error('load_failed_' + res.status);
+      const data = await res.json();
+      records = mergeRecords(data.records);
+      render();
+      setSaveStatus('', 'ok');
+    }
+    function render(){
+      const groups = [...new Set(milestones.map(x=>x.phase))];
+      document.getElementById('milestoneList').innerHTML = groups.map(phase=>{
+        const list = milestones.filter(x=>x.phase===phase), total = phaseTotals(list);
+        return `<section class="phase"><div class="phase-header"><h3>${phase}</h3><span class="phase-sum">${money(total)} บาท · ${list.reduce((s,x)=>s+x.pct,0)}%</span></div>${list.map(m=>row(m)).join('')}</section>`;
+      }).join('');
+      document.getElementById('paymentTable').innerHTML = milestones.map(m=>`<tr><td>${m.id}</td><td>${m.pct}%</td><td class="right">${money(m.amount)}</td><td>${m.title}</td></tr>`).join('');
+      document.querySelectorAll('[data-id]').forEach(el => el.addEventListener('change', onFieldChange));
+      updateTotals();
+      applyLock();
+    }
+    function row(m){
+      const r = records[m.id] || {}, done = !!r.done;
+      let badge = m.status==='paid' ? '<span class="badge paid">จ่ายแล้ว</span>' : m.status==='waiting' ? '<span class="badge wait">รอใบอนุญาต</span>' : '<span class="badge pending">ยังไม่เริ่ม</span>';
+      return `<article class="milestone ${done?'done':''}"><div class="number">งวด ${m.id}</div><div><p class="work">${m.title}</p><div class="statusline">${badge}</div><ul class="details">${m.items.map(i=>`<li>${i}</li>`).join('')}</ul></div><div class="payment"><strong>${money(m.amount)}</strong><span>${m.pct}% ของสัญญา</span></div><div class="track"><label class="state"><input data-id="${m.id}" data-field="done" type="checkbox" ${done?'checked':''}> ตรวจรับครบ / ปิดงวด</label><label>วันที่ตรวจรับ<input data-id="${m.id}" data-field="date" type="date" value="${r.date||''}"></label><label>บันทึกหน้างาน<input data-id="${m.id}" data-field="note" type="text" value="${escapeHtml(r.note||'')}" placeholder="เช่น เลขใบอนุญาต / ผู้ตรวจรับ"></label></div></article>`;
+    }
+    document.getElementById('saveButton').addEventListener('click', async () => {
+      const btn = document.getElementById('saveButton');
+      btn.disabled = true;
+      setSaveStatus('กำลังบันทึก…', 'warn');
+      try {
+        await saveToServer();
+        updateTotals();
+        setSaveStatus('บันทึกแล้ว', 'ok');
+      } catch (err) {
+        console.error(err);
+        setSaveStatus(err.userMsg || (err.message === 'no_pin' ? 'ยังไม่ได้ใส่ PIN / PIN required' : 'บันทึกไม่สำเร็จ — ลองอีกครั้ง'), 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    document.getElementById('resetButton').addEventListener('click', async () => {
+      if (!confirm('รีเซ็ตข้อมูลติดตามเป็นค่าเริ่มต้น (งวด 1 และ 1.1 จ่ายแล้ว) และบันทึกลงเซิร์ฟเวอร์ใช่หรือไม่?')) return;
+      records = {...defaults};
+      const btn = document.getElementById('resetButton');
+      btn.disabled = true;
+      setSaveStatus('กำลังรีเซ็ตและบันทึก…', 'warn');
+      try {
+        await saveToServer();
+        render();
+        setSaveStatus('รีเซ็ตและบันทึกแล้ว', 'ok');
+      } catch (err) {
+        console.error(err);
+        setSaveStatus(err.userMsg || 'รีเซ็ตแล้วในหน้านี้ แต่บันทึกเซิร์ฟเวอร์ไม่สำเร็จ', 'error');
+        render();
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    render();
+    loadFromServer().catch(err => {
+      console.error(err);
+      setSaveStatus('โหลดจากเซิร์ฟเวอร์ไม่สำเร็จ — แสดงค่าเริ่มต้น', 'error');
+    });
+  </script>
+</body>
+</html>

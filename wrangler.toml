@@ -6,4 +6,4 @@ compatibility_date = "2024-09-23"
 # (Dashboard bindings can also be set under Pages > Settings > Bindings.)
 [[kv_namespaces]]
 binding = "MILESTONES"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "47198bc4b3cf4a31bc48fbe848d5b563"

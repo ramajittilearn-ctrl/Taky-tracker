@@ -240,12 +240,23 @@
       return true;
     }
     document.getElementById('unlockButton').addEventListener('click', unlock);
-    async function saveToServer(){
+    // Always send all milestone ids so the server's "too few records" guard is satisfied by normal saves.
+    function fullRecords(){
+      const out = {};
+      for (const m of milestones) {
+        const r = records[m.id] || {};
+        out[m.id] = {done: !!r.done, date: typeof r.date === 'string' ? r.date : '', note: typeof r.note === 'string' ? r.note : ''};
+      }
+      return out;
+    }
+    async function saveToServer(force){
       if (!getPin() && !(await unlock())) throw new Error('no_pin');
+      const headers = {'Content-Type': 'application/json', 'X-Edit-Pin': getPin()};
+      if (force) headers['X-Force-Write'] = '1';
       const res = await fetch(API, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json', 'X-Edit-Pin': getPin()},
-        body: JSON.stringify({ records })
+        headers,
+        body: JSON.stringify({ records: fullRecords() })
       });
       if (res.status === 401 || res.status === 429) {
         if (res.status === 401) { sessionStorage.removeItem('trackerPin'); applyLock(); }
@@ -297,19 +308,21 @@
       }
     });
     document.getElementById('resetButton').addEventListener('click', async () => {
-      if (!confirm('รีเซ็ตข้อมูลติดตามเป็นค่าเริ่มต้น (งวด 1 และ 1.1 จ่ายแล้ว) และบันทึกลงเซิร์ฟเวอร์ใช่หรือไม่?')) return;
-      records = {...defaults};
+      if (!confirm('รีเซ็ตข้อมูลติดตามเป็นค่าเริ่มต้น (งวด 1 และ 1.1 จ่ายแล้ว) และบันทึกลงเซิร์ฟเวอร์ใช่หรือไม่? / Reset all milestones to defaults and save to the server?')) return;
+      const before = records;
       const btn = document.getElementById('resetButton');
       btn.disabled = true;
       setSaveStatus('กำลังรีเซ็ตและบันทึก…', 'warn');
+      records = {...defaults};
       try {
-        await saveToServer();
+        await saveToServer(true); // X-Force-Write: reset is an intentional full overwrite
         render();
-        setSaveStatus('รีเซ็ตและบันทึกแล้ว', 'ok');
+        setSaveStatus('รีเซ็ตและบันทึกแล้ว / Reset saved', 'ok');
       } catch (err) {
         console.error(err);
-        setSaveStatus(err.userMsg || 'รีเซ็ตแล้วในหน้านี้ แต่บันทึกเซิร์ฟเวอร์ไม่สำเร็จ', 'error');
+        records = before; // server was NOT changed: keep showing the real state
         render();
+        setSaveStatus(err.userMsg || (err.message === 'no_pin' ? 'ยังไม่ได้ใส่ PIN / PIN required' : 'รีเซ็ตไม่สำเร็จ ข้อมูลบนเซิร์ฟเวอร์ไม่เปลี่ยน / Reset failed, server data unchanged'), 'error');
       } finally {
         btn.disabled = false;
       }

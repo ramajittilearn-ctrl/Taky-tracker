@@ -17,6 +17,33 @@ export const safe = (fn) => async (ctx) => {
   catch (err) { console.error('handler error', err && err.message); return json({ error: 'server_error' }, 500); }
 };
 
+// JSON 405 for unsupported methods.
+export const methodNotAllowed = (allow) => () =>
+  new Response(JSON.stringify({ error: 'method_not_allowed' }), {
+    status: 405,
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', allow },
+  });
+
+// Read a request body with a hard byte cap, independent of Content-Length (may lie, or be absent/chunked).
+// Returns Uint8Array, or null if the cap is exceeded.
+export async function readLimited(request, max) {
+  const cl = request.headers.get('content-length');
+  if (cl && Number(cl) > max) return null;
+  if (!request.body) return new Uint8Array(0);
+  const reader = request.body.getReader();
+  const chunks = []; let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) { try { await reader.cancel(); } catch (_) {} return null; }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total); let off = 0;
+  for (const c of chunks) { out.set(c, off); off += c.byteLength; }
+  return out;
+}
+
 function hexToBytes(hex) {
   const out = new Uint8Array(hex.length / 2);
   for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
@@ -35,7 +62,8 @@ const readCount = async (env, k) => parseInt((await env.MILESTONES.get(k)) || '0
 export async function checkPin(request, env) {
   const hash = env.TRACKER_PIN_HASH;
   if (!/^[0-9a-f]{64}$/i.test(hash || '')) return json({ error: 'pin_not_configured' }, 503);
-  const ip = (request.headers.get('cf-connecting-ip') || '').trim().slice(0, 64) || 'local';
+  let ip = (request.headers.get('cf-connecting-ip') || '').trim().slice(0, 64);
+  if (!ip) { ip = 'local'; console.warn('ALERT: no CF-Connecting-IP, using shared "local" rate-limit bucket'); }
   const ipKey = 'rl:' + ip;
   const [ipCount, globalCount] = await Promise.all([readCount(env, ipKey), readCount(env, 'rl:global')]);
   if (ipCount >= FAIL_MAX || globalCount >= GLOBAL_MAX) return json({ error: 'too_many_attempts' }, 429);

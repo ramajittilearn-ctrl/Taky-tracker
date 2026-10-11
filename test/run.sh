@@ -1,52 +1,139 @@
 #!/bin/bash
-# Usage: PIN=<throwaway pin> ./test/run.sh   (server: wrangler pages dev public --kv MILESTONES --port 8788)
-B=http://localhost:8788; W=wrangler
-kvget(){ $W kv key get --namespace-id MILESTONES --local "$1" 2>/dev/null; }
-kvdel(){ $W kv key delete --namespace-id MILESTONES --local "$1" >/dev/null 2>&1; }
+# Self-contained API test: seeds a fresh local KV from seed/milestones.json, starts `wrangler pages dev`
+# on $PORT with a throwaway PIN ($PIN), asserts every case, exits non-zero on any failure.
+# Usage: PORT=8791 PIN=123456 ./test/run.sh      (PIN is random if unset; never use the real PIN)
+cd "$(dirname "$0")/.." || exit 2
+ROOT=$PWD
+PORT=${PORT:-8791}
+PIN=${PIN:-$(shuf -i 100000-999999 -n1)}
+W=${WRANGLER:-/workspace/wrangler-tools/node_modules/.bin/wrangler}
+HASH=$(printf '%s' "$PIN" | sha256sum | cut -d' ' -f1)
+STATE=$(mktemp -d); LOG=$STATE/server.log
+B=http://localhost:$PORT
+FAILS=0; PASSES=0
+export MAX_PHOTOS_TOTAL_TEST=14
+
+kvget(){ $W kv key get --namespace-id MILESTONES --local --persist-to "$STATE" "$1" 2>/dev/null; }
+kvdel(){ $W kv key delete --namespace-id MILESTONES --local --persist-to "$STATE" "$1" >/dev/null 2>&1; }
 reset(){ kvdel rl:global; for i in "$@"; do kvdel "rl:$i"; done; }
-code(){ curl -s -o /tmp/body -w '%{http_code}' "$@"; echo " $(head -c 150 /tmp/body)"; }
-put(){ ip=$1; pin=$2; data=$3; code -X PUT $B/api/milestones -H "CF-Connecting-IP: $ip" ${pin:+-H "X-Edit-Pin: $pin"} -H 'content-type: application/json' -d "$data"; }
-GOOD='{"records":{"1":{"done":true,"date":"2026-09-06","note":"a"},"1.1":{"done":true,"date":"2026-10-06","note":"b"}}}'
-echo "== 0 public listing"; ./test/public-clean.sh
-echo "== 1 baseline GET (open)"; code $B/api/milestones
-reset 1.1.1.1 local
-echo "== right PIN saves"; put 1.1.1.1 $PIN "$GOOD"
-echo "== PUT {} with right PIN -> 400, data intact"; put 1.1.1.1 $PIN '{}'; put 1.1.1.1 $PIN '{"records":{}}'; code $B/api/milestones
-echo "== constructor / __proto__ / unknown id / long note / bad date / array"
-put 1.1.1.1 $PIN '{"records":{"constructor":{"done":true}}}'
-put 1.1.1.1 $PIN '{"records":{"__proto__":{"done":true}}}'
-put 1.1.1.1 $PIN '{"records":{"99":{"done":true}}}'
-put 1.1.1.1 $PIN "{\"records\":{\"1\":{\"note\":\"$(printf 'x%.0s' $(seq 301))\"}}}"
-put 1.1.1.1 $PIN '{"records":{"1":{"date":"06/09/2026"}}}'
-put 1.1.1.1 $PIN '[1,2]'
-echo "== removing >3 records -> 409 (seed 4 records via full write first)"
-FULL='{"records":{"1":{"done":true},"1.1":{"done":true},"2":{"done":false},"3":{"done":false},"4":{"done":false},"5":{"done":false}}}'
-put 1.1.1.1 $PIN "$FULL"
-put 1.1.1.1 $PIN '{"records":{"1":{"done":true}}}'
-put 1.1.1.1 $PIN '{"records":{"1":{"done":true},"1.1":{"done":true},"2":{"done":false}}}'
-echo "== milestones:prev exists (local KV)"; kvget milestones:prev | head -c 200; echo
-echo "== malformed JSON: right PIN -> 400 JSON; wrong PIN -> 401 (PIN before body)"
-put 1.1.1.1 $PIN '{bad'; put 1.1.1.1 999999 '{bad'
+
+$W kv key put --namespace-id MILESTONES --local --persist-to "$STATE" milestones --path seed/milestones.json >/dev/null 2>&1 || { echo "seed failed"; exit 2; }
+$W pages dev public --kv MILESTONES --port "$PORT" --persist-to "$STATE" \
+  -b TRACKER_PIN_HASH="$HASH" -b MAX_PHOTOS_TOTAL=$MAX_PHOTOS_TOTAL_TEST >"$LOG" 2>&1 &
+SRV=$!
+trap 'kill $SRV 2>/dev/null; pkill -P $SRV 2>/dev/null; rm -rf "$STATE"' EXIT
+for i in $(seq 1 60); do curl -s -o /dev/null $B/api/health && break; sleep 1; done
+curl -s -o /dev/null $B/api/health || { echo "server did not start"; cat "$LOG"; exit 2; }
+
+# check NAME EXPECTED_CODE [BODY_REGEX] -- curl args...   (body in /tmp/tt_body)
+check(){
+  local name=$1 want=$2 re=$3; shift 3; [ "$1" = "--" ] && shift
+  local got; got=$(curl -s -m 20 -o /tmp/tt_body -w '%{http_code}' "$@")
+  if [ "$got" = "$want" ] && { [ -z "$re" ] || grep -Eq -- "$re" /tmp/tt_body; }; then
+    PASSES=$((PASSES+1)); echo "PASS $name ($got)"
+  else FAILS=$((FAILS+1)); echo "FAIL $name: want $want${re:+ /$re/} got $got: $(head -c 200 /tmp/tt_body)"; fi
+}
+assert(){ # assert NAME CONDITION(0=true)
+  if [ "$2" = 0 ]; then PASSES=$((PASSES+1)); echo "PASS $1"; else FAILS=$((FAILS+1)); echo "FAIL $1"; fi
+}
+put(){ # put NAME CODE REGEX IP PIN DATA [extra curl args]
+  local name=$1 code=$2 re=$3 ip=$4 pin=$5 data=$6; shift 6
+  check "$name" "$code" "$re" -- -X PUT $B/api/milestones -H "CF-Connecting-IP: $ip" ${pin:+-H "X-Edit-Pin: $pin"} -H 'content-type: application/json' -d "$data" "$@"
+}
+# build records JSON with ids from a list
+mk(){ python3 - "$@" <<'PY'
+import sys,json
+print(json.dumps({"records":{i:{"done":False,"date":"2026-10-01","note":"n"+i} for i in sys.argv[1:]}}))
+PY
+}
+ALL="1 1.1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17"
+FULL=$(mk $ALL); R15=$(mk 1 1.1 2 3 4 5 6 7 8 9 10 11 12 13 14); R12=$(mk 1 1.1 2 3 4 5 6 7 8 9 10 11)
+
+echo "== public dir clean"; ./test/public-clean.sh >/dev/null; assert "public/ has no data/secret files" $?
+echo "== seeded baseline"
+check "GET open" 200 '"records"' -- $B/api/milestones
+assert "seed has 6 records" $(python3 -c "import json;print(0 if len(json.load(open('/tmp/tt_body'))['records'])==6 else 1)")
+reset 1.1.1.1 2.2.2.2 3.3.3.3 4.4.4.4 5.5.5.5 7.7.7.7
+echo "== PIN gating"
+put "no PIN -> 401" 401 pin_required 1.1.1.1 "" "$FULL"
+put "wrong PIN -> 401" 401 wrong_pin 1.1.1.1 000000 "$FULL"
+put "right PIN saves 18" 200 '"1.1"' 1.1.1.1 $PIN "$FULL"
+echo "== validation"
+put "{} rejected" 400 invalid_records 1.1.1.1 $PIN '{}'
+put "constructor rejected" 400 invalid_records 1.1.1.1 $PIN '{"records":{"constructor":{"done":true}}}'
+put "__proto__ rejected" 400 invalid_records 1.1.1.1 $PIN '{"records":{"__proto__":{"done":true}}}'
+put "unknown id rejected" 400 invalid_records 1.1.1.1 $PIN '{"records":{"99":{"done":true}}}'
+put "long note rejected" 400 invalid_records 1.1.1.1 $PIN "{\"records\":{\"1\":{\"note\":\"$(printf 'x%.0s' $(seq 301))\"}}}"
+put "date 2026-13-99 rejected" 400 invalid_records 1.1.1.1 $PIN '{"records":{"1":{"date":"2026-13-99"}}}'
+put "date 2026-02-30 rejected" 400 invalid_records 1.1.1.1 $PIN '{"records":{"1":{"date":"2026-02-30"}}}'
+put "date 06/09/2026 rejected" 400 invalid_records 1.1.1.1 $PIN '{"records":{"1":{"date":"06/09/2026"}}}'
+put "array rejected" 400 invalid_records 1.1.1.1 $PIN '[1,2]'
+put "malformed JSON, right PIN -> 400" 400 invalid_json 1.1.1.1 $PIN '{bad'
+put "malformed JSON, wrong PIN -> 401 (PIN before body)" 401 wrong_pin 1.1.1.1 999999 '{bad'
 reset 1.1.1.1
-echo "== 256kb limit"; head -c 300000 /dev/zero | tr '\0' 'a' > /tmp/big.json; code -X PUT $B/api/milestones -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN" --data-binary @/tmp/big.json
-echo "== no PIN -> 401 and NOT a strike (8 tries then right PIN still works)"
-reset 2.2.2.2; for i in 1 2 3 4 5 6 7 8; do put 2.2.2.2 "" "$GOOD" >/dev/null; done; put 2.2.2.2 "" "$GOOD"; put 2.2.2.2 $PIN "$GOOD"
-echo "== wrong PINs: 4 strikes, correct PIN resets, 4 more strikes still not locked"
-reset 3.3.3.3; for i in 1 2 3 4; do put 3.3.3.3 000000 "$GOOD" >/dev/null; done; echo "counter: $(kvget rl:3.3.3.3)"
-put 3.3.3.3 $PIN "$GOOD"; echo "counter after correct: [$(kvget rl:3.3.3.3)]"
-for i in 1 2 3 4; do put 3.3.3.3 000000 "$GOOD" >/dev/null; done; put 3.3.3.3 $PIN "$GOOD"
-echo "== spoofed X-Forwarded-For does not bypass lockout (same CF IP 4.4.4.4)"
-reset 4.4.4.4; for i in 1 2 3 4 5 6 7 8; do echo -n "try$i: "; curl -s -o /tmp/body -w '%{http_code}\n' -X PUT $B/api/milestones -H "CF-Connecting-IP: 4.4.4.4" -H "X-Forwarded-For: 9.9.9.$i" -H "X-Edit-Pin: 00000$i" -d "$GOOD"; done
-echo "== locked IP even with right PIN"; put 4.4.4.4 $PIN "$GOOD"
-echo "== other IP unaffected"; put 5.5.5.5 $PIN "$GOOD"
-echo "== global cap: 20 wrong PINs from distinct IPs, then 429 for new IP"
-reset 4.4.4.4 5.5.5.5 6.6.6.1; for i in $(seq 1 20); do echo -n "$(curl -s -o /dev/null -w '%{http_code}' -X PUT $B/api/milestones -H "CF-Connecting-IP: 10.0.0.$i" -H "X-Edit-Pin: 111111" -d "$GOOD") "; done; echo
-echo "global counter: $(kvget rl:global)"; echo -n "21st new IP wrong: "; put 10.0.1.1 111111 "$GOOD"; echo -n "new IP right PIN: "; put 10.0.1.2 $PIN "$GOOD"
-echo "== check-pin"; reset
-echo -n "right: "; code -X POST $B/api/check-pin -H "CF-Connecting-IP: 7.7.7.7" -H "X-Edit-Pin: $PIN"
-echo -n "wrong: "; code -X POST $B/api/check-pin -H "CF-Connecting-IP: 7.7.7.7" -H "X-Edit-Pin: 222222"
-echo -n "missing: "; code -X POST $B/api/check-pin -H "CF-Connecting-IP: 7.7.7.7"
-for i in 1 2 3 4; do code -X POST $B/api/check-pin -H "CF-Connecting-IP: 7.7.7.7" -H "X-Edit-Pin: 22222$i" >/dev/null; done
-echo -n "after 5 wrong: "; code -X POST $B/api/check-pin -H "CF-Connecting-IP: 7.7.7.7" -H "X-Edit-Pin: $PIN"
-echo "== GET stays open"; code $B/api/milestones
+put "valid leap date 2028-02-29 accepted" 200 '' 1.1.1.1 $PIN "$(mk 1 1.1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 | sed 's/2026-10-01/2028-02-29/')"
+echo "== erosion guard + backups"
+put "write 18->15 ok" 200 '' 1.1.1.1 $PIN "$R15"
+put "write 15->12 refused (<15)" 409 too_few_records 1.1.1.1 $PIN "$R12"
+check "still 15 records" 200 '' -- $B/api/milestones
+assert "records stay 15" $(python3 -c "import json;print(0 if len(json.load(open('/tmp/tt_body'))['records'])==15 else 1)")
+put "write 15->12 with X-Force-Write" 200 '' 1.1.1.1 $PIN "$R12" -H 'X-Force-Write: 1'
+put "force without PIN still 401" 401 pin_required 1.1.1.1 "" "$R12" -H 'X-Force-Write: 1'
+put "restore 18 (adds only)" 200 '' 1.1.1.1 $PIN "$FULL"
+for k in 1 2 3; do assert "backup milestones:prev$k exists" $([ -n "$(kvget milestones:prev$k)" ] && echo 0 || echo 1); done
+assert "no legacy milestones:prev needed (prev1 is newest backup)" $(kvget milestones:prev1 | grep -q '"1"' && echo 0 || echo 1)
+echo "== body limits"
+head -c 300000 /dev/zero | tr '\0' 'a' > /tmp/tt_big.json
+check "300KB body -> 413" 413 payload_too_large -- -X PUT $B/api/milestones -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN" --data-binary @/tmp/tt_big.json
+check "300KB chunked -> 413" 413 payload_too_large -- -X PUT $B/api/milestones -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN" -H 'Transfer-Encoding: chunked' --data-binary @/tmp/tt_big.json
+check "small chunked valid body -> 200" 200 '' -- -X PUT $B/api/milestones -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN" -H 'Transfer-Encoding: chunked' -H 'content-type: application/json' -d "$FULL"
+rawput(){ # rawput CLAIMED_LEN BODYFILE -> status line code
+  python3 - "$PORT" "$PIN" "$1" "$2" <<'PY'
+import socket,sys
+port,pin,cl,f=int(sys.argv[1]),sys.argv[2],sys.argv[3],sys.argv[4]
+body=open(f,'rb').read()
+s=socket.create_connection(('localhost',port),timeout=15)
+s.sendall(("PUT /api/milestones HTTP/1.1\r\nHost: x\r\nCF-Connecting-IP: 1.1.1.1\r\nX-Edit-Pin: %s\r\nContent-Length: %s\r\nConnection: close\r\n\r\n"%(pin,cl)).encode()+body)
+d=b''
+try:
+  while True:
+    c=s.recv(65536)
+    if not c:break
+    d+=c
+except Exception: pass
+print(d.split(b' ')[1].decode() if d else 'none')
+PY
+}
+echo -n '{"records":{"1":{"done":true}}}' > /tmp/tt_small.json
+assert "lying Content-Length 10 (300KB body sent) -> never 200" $([ "$(rawput 10 /tmp/tt_big.json)" != 200 ] && echo 0 || echo 1)
+# NOTE: a Content-Length larger than the bytes actually sent stalls inside local miniflare before reaching the function, so it cannot be exercised locally; the code path (readLimited CL check) is the same one the 300KB test hits.
+echo "== 405 JSON"
+check "PATCH milestones -> 405 JSON" 405 method_not_allowed -- -X PATCH $B/api/milestones
+check "DELETE milestones -> 405 JSON" 405 method_not_allowed -- -X DELETE $B/api/milestones
+check "GET check-pin -> 405 JSON" 405 method_not_allowed -- $B/api/check-pin
+echo "== rate limits"
+reset 1.1.1.1 2.2.2.2
+for i in 1 2 3 4 5 6 7 8; do put x 401 '' 2.2.2.2 "" "$FULL" >/dev/null; done
+put "8 no-PIN requests are not strikes; right PIN works" 200 '' 2.2.2.2 $PIN "$FULL"
+reset 3.3.3.3; for i in 1 2 3 4; do put x 401 '' 3.3.3.3 000000 "$FULL" >/dev/null; done
+put "correct PIN after 4 strikes ok (resets)" 200 '' 3.3.3.3 $PIN "$FULL"
+assert "counter cleared" $(kvget rl:3.3.3.3 | grep -Eq "^[0-9]+$" && echo 1 || echo 0)
+reset 4.4.4.4; for i in 1 2 3 4 5; do curl -s -o /dev/null -X PUT $B/api/milestones -H "CF-Connecting-IP: 4.4.4.4" -H "X-Forwarded-For: 9.9.9.$i" -H "X-Edit-Pin: 00000$i" -d "$FULL"; done
+put "spoofed X-Forwarded-For does not bypass lockout -> 429" 429 too_many_attempts 4.4.4.4 $PIN "$FULL" -H 'X-Forwarded-For: 8.8.8.8'
+put "other IP unaffected" 200 '' 5.5.5.5 $PIN "$FULL"
+reset 4.4.4.4 5.5.5.5; for i in $(seq 1 20); do curl -s -o /dev/null -X PUT $B/api/milestones -H "CF-Connecting-IP: 10.0.0.$i" -H "X-Edit-Pin: 111111" -d "$FULL"; done
+put "global cap: 21st new IP -> 429" 429 too_many_attempts 10.0.1.1 111111 "$FULL"
+put "global cap: right PIN from new IP also 429" 429 too_many_attempts 10.0.1.2 $PIN "$FULL"
+reset
+check "check-pin right" 200 '"ok"' -- -X POST $B/api/check-pin -H "CF-Connecting-IP: 7.7.7.7" -H "X-Edit-Pin: $PIN"
+check "check-pin wrong" 401 wrong_pin -- -X POST $B/api/check-pin -H "CF-Connecting-IP: 7.7.7.7" -H "X-Edit-Pin: 222222"
+check "check-pin missing" 401 pin_required -- -X POST $B/api/check-pin -H "CF-Connecting-IP: 7.7.7.7"
+check "GET still open" 200 '"records"' -- $B/api/milestones
 reset 7.7.7.7
+grep -q "ALERT: no CF-Connecting-IP" functions/_lib/guard.js; assert "local-bucket console.warn present in guard (wrangler dev always injects CF-Connecting-IP, so only statically checkable)" $?
+reset local
+
+#__PHOTO_TESTS__
+
+echo; echo "RESULT: $PASSES passed, $FAILS failed"
+[ "$FAILS" = 0 ]

@@ -133,7 +133,81 @@ reset 7.7.7.7
 grep -q "ALERT: no CF-Connecting-IP" functions/_lib/guard.js; assert "local-bucket console.warn present in guard (wrangler dev always injects CF-Connecting-IP, so only statically checkable)" $?
 reset local
 
-#__PHOTO_TESTS__
+echo "== photos API"
+reset; PH=/tmp/ph
+post(){ # post NAME CODE REGEX IP PIN QUERY FILE [curl extras]
+  local name=$1 code=$2 re=$3 ip=$4 pin=$5 q=$6 f=$7; shift 7
+  check "$name" "$code" "$re" -- -X POST "$B/api/photos?$q" -H "CF-Connecting-IP: $ip" ${pin:+-H "X-Edit-Pin: $pin"} --data-binary @"$f" "$@"
+}
+pid(){ python3 -c "import json;print(json.load(open('/tmp/tt_body'))['id'])"; }
+post "upload no PIN -> 401" 401 pin_required 1.1.1.1 "" "milestone=2" $PH/ok.jpg
+post "upload wrong PIN -> 401" 401 wrong_pin 1.1.1.1 000000 "milestone=2" $PH/ok.jpg
+reset 1.1.1.1
+post "fake text file named .jpg -> 415" 415 not_a_supported_image 1.1.1.1 $PIN "milestone=2" $PH/fake.jpg -H 'Content-Type: image/jpeg'
+post ">2MB photo -> 413" 413 photo_too_large 1.1.1.1 $PIN "milestone=2" $PH/big.jpg
+post ">2MB chunked photo -> 413" 413 photo_too_large 1.1.1.1 $PIN "milestone=2" $PH/big.jpg -H 'Transfer-Encoding: chunked'
+post "unknown milestone -> 400" 400 unknown_milestone 1.1.1.1 $PIN "milestone=99" $PH/ok.jpg
+post "bad date 2026-13-99 -> 400" 400 invalid_date 1.1.1.1 $PIN "milestone=2&date=2026-13-99" $PH/ok.jpg
+post "caption 201 chars -> 400" 400 caption_too_long 1.1.1.1 $PIN "milestone=2&caption=$(printf 'a%.0s' $(seq 201))" $PH/ok.jpg
+CAP=$(python3 -c "import urllib.parse;print(urllib.parse.quote('เตรียมพื้นที่ / Soil <b>clearing</b>'))")
+post "valid JPEG (ms 2, Thai caption) -> 201" 201 '"id"' 1.1.1.1 $PIN "milestone=2&date=2026-10-11&caption=$CAP" $PH/ok.jpg -H 'Content-Type: text/html'
+ID1=$(pid)
+curl -s -D /tmp/tt_hdr -o /tmp/tt_img "$B/api/photos/$ID1"
+assert "GET photo: 200 + exact bytes" $(grep -q ' 200' /tmp/tt_hdr && cmp -s /tmp/tt_img $PH/ok.jpg && echo 0 || echo 1)
+assert "GET photo: Content-Type from validated type (image/jpeg) even though client said text/html" $(grep -qi '^content-type: image/jpeg' /tmp/tt_hdr && echo 0 || echo 1)
+assert "GET photo: nosniff + long immutable cache" $(grep -qi '^x-content-type-options: nosniff' /tmp/tt_hdr && grep -qi 'max-age=31536000' /tmp/tt_hdr && echo 0 || echo 1)
+post "PNG accepted" 201 '"id"' 1.1.1.1 $PIN "milestone=2" $PH/ok.png -H 'Content-Type: image/jpeg'; ID2=$(pid)
+curl -s -D /tmp/tt_hdr -o /dev/null "$B/api/photos/$ID2"; assert "PNG served as image/png (client label ignored)" $(grep -qi '^content-type: image/png' /tmp/tt_hdr && echo 0 || echo 1)
+post "WebP accepted" 201 '"id"' 1.1.1.1 $PIN "milestone=3" $PH/ok.webp; ID3=$(pid)
+post "photo with NO milestone (general) -> 201" 201 '"milestoneId":""' 1.1.1.1 $PIN "date=2026-10-10&caption=general" $PH/ok.jpg; ID4=$(pid)
+post "date defaults to today when omitted" 201 '"date":"20' 1.1.1.1 $PIN "milestone=3" $PH/ok.jpg; ID5=$(pid)
+check "GET invalid id -> 400" 400 invalid_id -- "$B/api/photos/not-a-uuid"
+check "GET unknown valid uuid -> 404" 404 not_found -- "$B/api/photos/0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b"
+check "list ms 2 (open)" 200 "$ID1" -- "$B/api/photos?milestone=2"
+assert "list ms 2: Thai caption kept as text, newest first (2 entries)" $(python3 -c "
+import json;p=json.load(open('/tmp/tt_body'))['photos'];print(0 if len(p)==2 and any('เตรียมพื้นที่' in x['caption'] for x in p) and p[0]['createdAt']>=p[1]['createdAt'] and all(x['milestoneId']=='2' for x in p) else 1)")
+check "list all includes general photo with empty milestoneId" 200 "$ID4" -- "$B/api/photos"
+check "list unknown milestone -> 400" 400 unknown_milestone -- "$B/api/photos?milestone=zzz"
+check "PATCH photos -> 405 JSON" 405 method_not_allowed -- -X PATCH $B/api/photos
+echo "-- delete"
+check "DELETE no PIN -> 401" 401 pin_required -- -X DELETE "$B/api/photos/$ID1" -H "CF-Connecting-IP: 1.1.1.1"
+check "DELETE wrong PIN -> 401" 401 wrong_pin -- -X DELETE "$B/api/photos/$ID1" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: 000000"
+reset 1.1.1.1
+check "photo still there after refused deletes" 200 '' -- "$B/api/photos/$ID1"
+check "DELETE right PIN -> 200" 200 '"ok"' -- -X DELETE "$B/api/photos/$ID1" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN"
+check "deleted photo -> 404" 404 not_found -- "$B/api/photos/$ID1"
+check "deleted photo gone from list" 200 '' -- "$B/api/photos?milestone=2"
+assert "index no longer lists it" $(grep -q "$ID1" /tmp/tt_body && echo 1 || echo 0)
+check "DELETE again -> 404" 404 not_found -- -X DELETE "$B/api/photos/$ID1" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN"
+for i in $ID2 $ID3 $ID4 $ID5; do curl -s -o /dev/null -X DELETE "$B/api/photos/$i" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN"; done
+echo "-- caps (total cap set to $MAX_PHOTOS_TOTAL_TEST via MAX_PHOTOS_TOTAL)"
+for i in $(seq 1 12); do curl -s -o /dev/null -X POST "$B/api/photos?milestone=2" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN" --data-binary @$PH/ok.jpg; done
+post "13th photo on one milestone -> 409" 409 milestone_photo_limit 1.1.1.1 $PIN "milestone=2" $PH/ok.jpg
+post "photo 13 (ms 3) ok" 201 '' 1.1.1.1 $PIN "milestone=3" $PH/ok.jpg
+post "photo 14 (ms 3) ok -> total 14" 201 '' 1.1.1.1 $PIN "milestone=3" $PH/ok.jpg
+post "15th photo overall -> 409 total cap" 409 total_photo_limit 1.1.1.1 $PIN "milestone=4" $PH/ok.jpg
+post "general photo over total cap -> 409" 409 total_photo_limit 1.1.1.1 $PIN "" $PH/ok.jpg
+curl -s "$B/api/photos" | python3 -c "import json,sys;print('\n'.join(p['id'] for p in json.load(sys.stdin)['photos']))" > /tmp/tt_ids
+assert "14 photos listed" $([ "$(wc -l < /tmp/tt_ids)" = 14 ] && echo 0 || echo 1)
+while read i; do curl -s -o /dev/null -X DELETE "$B/api/photos/$i" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN"; done < /tmp/tt_ids
+check "all cleaned" 200 '"photos":\[\]' -- "$B/api/photos"
+echo "-- lockout still holds on photo endpoints"
+reset 6.6.6.6
+for i in 1 2 3 4 5; do curl -s -o /dev/null -X POST "$B/api/photos?milestone=2" -H "CF-Connecting-IP: 6.6.6.6" -H "X-Edit-Pin: 00000$i" --data-binary @$PH/ok.jpg; done
+post "6th try, RIGHT PIN, same IP -> 429" 429 too_many_attempts 6.6.6.6 $PIN "milestone=2" $PH/ok.jpg
+check "DELETE also locked -> 429" 429 too_many_attempts -- -X DELETE "$B/api/photos/0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b" -H "CF-Connecting-IP: 6.6.6.6" -H "X-Edit-Pin: $PIN"
+reset 6.6.6.6
+assert "public/ still clean" $(./test/public-clean.sh >/dev/null && echo 0 || echo 1)
+
+echo "== UI (Playwright, chromium)"
+PW_DIR=${PW_DIR:-/workspace/pw-test}
+if [ -d "$PW_DIR/node_modules/playwright" ]; then
+  python3 test/make-photo.py /tmp/ph/big4000x3000.jpg
+  reset
+  BASE=$B PIN=$PIN PW_DIR=$PW_DIR SEED_DIR=${SEED_DIR:-/workspace/construction-photos/2026-10-11} node test/ui.cjs
+  assert "Playwright UI suite" $?
+else echo "FAIL: playwright not found in PW_DIR=$PW_DIR (npm i playwright && npx playwright install chromium)"; FAILS=$((FAILS+1)); fi
+#__PROGRESS_TESTS__
 
 echo; echo "RESULT: $PASSES passed, $FAILS failed"
 [ "$FAILS" = 0 ]

@@ -17,6 +17,17 @@
 - Counters live in KV, so they are best effort (KV is eventually consistent).
 - `POST /api/check-pin` uses the same checks and strikes.
 
+## Construction photos
+**For Taky (phone):** 1) open the tracker link. 2) Tap a milestone (or the "Site progress photos" box at the top for photos that belong to no milestone). 3) Tap **Add photos** and enter the edit PIN once (it is remembered only until you close the tab). 4) Pick one or more photos from the gallery or camera. 5) For each photo set the **work date** (defaults to today; change it to the day the work happened) and an optional caption (max 200 chars, Thai first then English is fine). 6) Tap **Upload** and wait for "Done n/n". Tap a thumbnail to see it full size.
+
+- Browser resizes before upload: longest side 1600 px, JPEG quality 0.8, EXIF rotation honoured (typically 200-500 KB). **A photo that is already <= 1600 px and <= 2 MB is uploaded unchanged** (no recompress). Re-encoded photos lose all EXIF including GPS; unchanged ones keep whatever they contain. (Burned-in text on the picture is never touched.)
+- HEIC that the browser cannot decode shows a Thai/English message; use JPEG ("Most Compatible") instead.
+- API: `POST /api/photos?milestone=<id, optional>&date=YYYY-MM-DD&caption=...` (raw image body, `X-Edit-Pin`), `GET /api/photos[?milestone=<id|_general>]` (open list, newest first), `GET /api/photos/<id>` (open, image bytes, `nosniff`, 1-year immutable cache), `DELETE /api/photos/<id>` (PIN). Same PIN check, per-IP limit and global cap as saving milestones.
+- Server checks magic bytes (JPEG/PNG/WebP only; the client Content-Type is ignored), max 2 MB per photo, 12 photos per milestone, 400 total (`MAX_PHOTOS_TOTAL` env can lower it for tests). Photos with no milestone live under `_general` (cap = total cap).
+- Storage (KV, same `MILESTONES` binding): `photo:<uuid>` = image bytes (+ metadata with the validated type), `photos:index:<milestoneId|_general>` = JSON list `{id, milestoneId, date, caption, size, createdAt}`. Upload writes the image first, then the index (re-read, merge, write, verify, retry); if the index write fails the image is deleted. Delete removes from the index first.
+- Free-plan limits (no paid plan needed): KV free = 1 GB storage, 1,000 writes/day, 100,000 reads/day, 1,000 lists/day, 25 MB/value. At ~300 KB/photo 1 GB is ~3,000 photos (cap is 400). Each upload costs ~2 KV writes (image + index) plus a wrong-PIN counter write only on failures, so **1,000 writes/day is about 400-500 photos/day max**, and Save/backups (4 writes) and PIN counters share that same budget. Each upload also does one KV list (total-count check).
+- Captions are rendered as text only (never HTML). The PIN stays in `sessionStorage`.
+
 ## Deploy
 1. Cloudflare dashboard: KV namespace; Pages project from this GitHub repo (the Cloudflare GitHub app needs access to this repo). Build command: none; output dir: `public`.
 2. Pages > Settings > Bindings: KV namespace binding `MILESTONES` (Production + Preview). `wrangler.toml` already carries the namespace id; do not change its layout.
@@ -28,4 +39,4 @@
 `cp .dev.vars.example .dev.vars` (fill a throwaway hash), then `npx wrangler pages dev public --kv MILESTONES --port 8788`. Never commit `.dev.vars` or a real PIN.
 
 ## Tests
-`PORT=8811 PIN=<throwaway> ./test/run.sh` seeds a fresh local KV from `seed/milestones.json`, starts wrangler itself, asserts every case and exits non-zero on any failure.
+`PORT=8811 PIN=<throwaway> ./test/run.sh` (needs Playwright in `PW_DIR`, default /workspace/pw-test: `npm i playwright && npx playwright install chromium`) seeds a fresh local KV from `seed/milestones.json`, starts wrangler itself, asserts every API case, then runs the Playwright UI suite (`test/ui.cjs`, real 4000x3000 JPEG, 390 px mobile checks), and exits non-zero on any failure.

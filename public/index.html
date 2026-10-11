@@ -18,6 +18,10 @@
     @media(max-width:860px){.top-grid{grid-template-columns:repeat(2,1fr)}.top-grid .card:first-child{grid-column:span 2}.milestone{grid-template-columns:62px 1fr 125px}.track{grid-column:2 / -1;grid-template-columns:1fr 130px 1fr;align-items:end}.state{grid-column:1 / -1}}@media(max-width:570px){.wrap{padding:15px 10px 38px}.hero{padding:23px 19px;border-radius:14px}.top-grid{grid-template-columns:1fr}.top-grid .card:first-child{grid-column:auto}.milestone{grid-template-columns:50px 1fr;gap:10px;padding:15px 1px}.payment{grid-column:2;text-align:left;display:flex;gap:8px;align-items:baseline}.payment strong{display:inline}.track{grid-column:2;grid-template-columns:1fr}.phase-header{align-items:flex-start;flex-direction:column;gap:2px}.progress-info{flex-direction:column;gap:2px}}
         .pinmodal{position:fixed;inset:0;background:#10253a99;display:none;align-items:center;justify-content:center;z-index:50;padding:16px}.pinmodal.open{display:flex}.pinbox{background:#fff;border-radius:14px;padding:22px;max-width:340px;width:100%;box-shadow:0 13px 35px #12365744}.pinbox h3{margin:0 0 6px}.pinbox input{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px;font:inherit;font-size:1.1rem;letter-spacing:.2em;margin:10px 0}.pinbox .row{display:flex;gap:8px;justify-content:flex-end}.pinmsg{color:var(--red);font-size:.88rem;min-height:1.2em}.readonly-note{color:var(--muted);font-size:.88rem}.locked #saveButton,.locked #resetButton{display:none}.track input:disabled{background:#f2f5f8;cursor:not-allowed}
     @media print{body{background:#fff}.wrap{max-width:none;padding:0}.hero{border-radius:0;box-shadow:none}.track,.tools,.save-bar{display:none}.milestone{grid-template-columns:65px 1fr 125px}.statusline{display:none}}
+    .photos{grid-column:1 / -1;border-top:1px dashed var(--line);padding-top:10px;margin-top:4px}.photos-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.photos-head strong{font-size:.95rem}.pcount{color:var(--muted);font-size:.85rem}.photos .button{min-height:44px;min-width:44px}.photos .add{margin-left:auto}.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;margin-top:10px}.pitem{margin:0;min-width:0}.pitem button{display:block;width:100%;min-height:44px;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#eef2f6;cursor:pointer}.pitem img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}.pitem figcaption{font-size:.78rem;color:var(--muted);line-height:1.3;margin-top:3px;overflow-wrap:anywhere}.pitem figcaption b{color:var(--ink);font-weight:600}
+    .stage{margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:10px;background:#f9fbfd}.stage .srow{display:grid;grid-template-columns:1fr;gap:6px;padding:8px 0;border-bottom:1px solid var(--line)}.stage .srow:last-of-type{border-bottom:0}.stage .fname{font-size:.82rem;color:var(--muted);overflow-wrap:anywhere}.stage input[type=date],.stage input[type=text]{width:100%;min-height:44px;border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;background:#fff}.stage .sbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}.stage .sprog{font-size:.88rem;font-weight:600;color:var(--blue2)}.stage .serr{color:var(--red);font-size:.85rem;overflow-wrap:anywhere}
+    .lightbox{position:fixed;inset:0;background:#0b1a2ccc;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:60;padding:12px;gap:10px}.lightbox.open{display:flex}.lightbox img{max-width:100%;max-height:72vh;border-radius:8px;background:#000}.lightbox .lcap{color:#fff;text-align:center;max-width:640px;overflow-wrap:anywhere}.lightbox .lbar{display:flex;gap:10px}.lightbox .button{min-height:44px;min-width:44px}
+    @media print{.photos .add,.stage{display:none}}
   </style>
 </head>
 <body>
@@ -46,6 +50,7 @@
       <h2>ตารางงวดงานละเอียดตามสัญญา</h2>
       <p class="section-intro">ตรวจรับตามรายการในงวดก่อนเปลี่ยนสถานะเป็น “ตรวจรับครบ” และแนบวันที่/บันทึกหน้างานไว้ในช่องของแต่ละงวด</p>
       <div class="tools"><p>งวดที่ 1 และ 1.1 ถูกตั้งเป็น “ตรวจรับครบ/จ่ายแล้ว” ตามข้อมูลที่ยืนยันล่าสุด</p><button class="button" type="button" id="resetButton">รีเซ็ตข้อมูลติดตามในหน้านี้</button></div>
+      <div class="card" style="margin-bottom:14px"><div class="photos" style="border-top:0;padding-top:0;margin-top:0" data-ms="_general" id="generalPhotos"></div></div>
       <div id="milestoneList"></div>
       <div class="save-bar">
         <button class="button" type="button" id="unlockButton">🔒 ใส่ PIN เพื่อแก้ไข / Enter PIN to edit</button>
@@ -54,6 +59,7 @@
       </div>
     </section>
 
+    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true"><img id="lbImg" alt=""><div class="lcap" id="lbCap"></div><div class="lbar"><button class="button" type="button" id="lbDel" style="display:none">🗑 ลบรูป / Delete</button><button class="button primary" type="button" id="lbClose">ปิด / Close</button></div></div>
     <div class="pinmodal" id="pinModal" role="dialog" aria-modal="true"><form class="pinbox" id="pinForm"><h3>ใส่ PIN เพื่อแก้ไข / Enter edit PIN</h3><div class="hint">ผู้ชมดูได้อย่างเดียว / Viewers are read-only</div><input id="pinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="32" aria-label="PIN"><div class="pinmsg" id="pinMsg"></div><div class="row"><button class="button" type="button" id="pinCancel">ยกเลิก / Cancel</button><button class="button primary" type="submit">ตกลง / OK</button></div></form></div>
 
     <section class="section card">
@@ -286,11 +292,12 @@
       document.querySelectorAll('[data-id]').forEach(el => el.addEventListener('change', onFieldChange));
       updateTotals();
       applyLock();
+      if (typeof paintPhotos === 'function') paintPhotos();
     }
     function row(m){
       const r = records[m.id] || {}, done = !!r.done;
       let badge = m.status==='paid' ? '<span class="badge paid">จ่ายแล้ว</span>' : m.status==='waiting' ? '<span class="badge wait">รอใบอนุญาต</span>' : '<span class="badge pending">ยังไม่เริ่ม</span>';
-      return `<article class="milestone ${done?'done':''}"><div class="number">งวด ${m.id}</div><div><p class="work">${m.title}</p><div class="statusline">${badge}</div><ul class="details">${m.items.map(i=>`<li>${i}</li>`).join('')}</ul></div><div class="payment"><strong>${money(m.amount)}</strong><span>${m.pct}% ของสัญญา</span></div><div class="track"><label class="state"><input data-id="${m.id}" data-field="done" type="checkbox" ${done?'checked':''}> ตรวจรับครบ / ปิดงวด</label><label>วันที่ตรวจรับ<input data-id="${m.id}" data-field="date" type="date" value="${r.date||''}"></label><label>บันทึกหน้างาน<input data-id="${m.id}" data-field="note" type="text" value="${escapeHtml(r.note||'')}" placeholder="เช่น เลขใบอนุญาต / ผู้ตรวจรับ"></label></div></article>`;
+      return `<article class="milestone ${done?'done':''}"><div class="number">งวด ${m.id}</div><div><p class="work">${m.title}</p><div class="statusline">${badge}</div><ul class="details">${m.items.map(i=>`<li>${i}</li>`).join('')}</ul></div><div class="payment"><strong>${money(m.amount)}</strong><span>${m.pct}% ของสัญญา</span></div><div class="track"><label class="state"><input data-id="${m.id}" data-field="done" type="checkbox" ${done?'checked':''}> ตรวจรับครบ / ปิดงวด</label><label>วันที่ตรวจรับ<input data-id="${m.id}" data-field="date" type="date" value="${r.date||''}"></label><label>บันทึกหน้างาน<input data-id="${m.id}" data-field="note" type="text" value="${escapeHtml(r.note||'')}" placeholder="เช่น เลขใบอนุญาต / ผู้ตรวจรับ"></label></div><div class="photos" data-ms="${m.id}"></div></article>`;
     }
     document.getElementById('saveButton').addEventListener('click', async () => {
       const btn = document.getElementById('saveButton');
@@ -327,7 +334,138 @@
         btn.disabled = false;
       }
     });
+
+    // ---------- Photos ----------
+    const PHOTO_API = '/api/photos';
+    const MSG_HEIC = 'เบราว์เซอร์อ่านรูปนี้ไม่ได้ (เช่น HEIC) — ตั้งค่ากล้องเป็น JPEG/“Most Compatible” หรือเลือกรูปอื่น / This browser cannot read this image (e.g. HEIC). Use JPEG or another photo.';
+    const MAX_SIDE = 1600, JPEG_Q = 0.8, MAX_AFTER = 8 * 1024 * 1024, SERVER_MAX = 2 * 1024 * 1024;
+    let photosAll = [];
+    const stagedByMs = {};
+    const localToday = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+    const msKey = ms => ms || '_general';
+    const photosOf = ms => photosAll.filter(p => msKey(p.milestoneId) === ms);
+    async function loadPhotos(){
+      try { const r = await fetch(PHOTO_API); if (!r.ok) return; photosAll = (await r.json()).photos || []; paintPhotos(); } catch (e) { console.error(e); }
+    }
+    function el(tag, props, ...kids){ const e = document.createElement(tag); Object.assign(e, props || {}); for (const k of kids) e.append(k); return e; }
+    function paintPhotos(){
+      document.querySelectorAll('.photos[data-ms]').forEach(box => paintBox(box));
+    }
+    function paintBox(box){
+      const ms = box.dataset.ms, list = photosOf(ms);
+      const staged = box.querySelector('.stage');
+      box.textContent = '';
+      const title = ms === '_general' ? 'รูปความคืบหน้าหน้างาน / Site progress photos' : 'รูปถ่ายหน้างาน / Photos';
+      const addBtn = el('button', {type: 'button', className: 'button add', textContent: '📷 เพิ่มรูป / Add photos'});
+      addBtn.addEventListener('click', () => addPhotos(ms));
+      const input = el('input', {type: 'file', accept: 'image/*', multiple: true, hidden: true});
+      input.addEventListener('change', () => { if (input.files.length) stage(ms, [...input.files]); input.value = ''; });
+      box._input = input;
+      box.append(el('div', {className: 'photos-head'}, el('strong', {textContent: title}), el('span', {className: 'pcount', textContent: list.length ? '(' + list.length + ')' : ''}), addBtn, input));
+      if (staged) box.append(staged);
+      const grid = el('div', {className: 'pgrid'});
+      for (const p of list) {
+        const img = el('img', {src: PHOTO_API + '/' + p.id, loading: 'lazy', alt: p.caption || ('รูปหน้างาน ' + p.date)});
+        const btn = el('button', {type: 'button', 'aria-label': 'ดูรูปใหญ่ / View photo ' + (p.caption || p.date)}, img);
+        btn.addEventListener('click', () => openLightbox(p));
+        grid.append(el('figure', {className: 'pitem'}, btn, el('figcaption', {}, el('b', {textContent: p.date}), document.createTextNode(p.caption ? ' · ' + p.caption : ''))));
+      }
+      box.append(grid);
+    }
+    async function addPhotos(ms){
+      if (!getPin() && !(await unlock())) return;
+      const box = document.querySelector('.photos[data-ms="' + ms + '"]');
+      if (box && box._input) box._input.click(); // if the browser blocks the picker after the PIN dialog, tap Add photos again
+    }
+    function stage(ms, files){
+      const box = document.querySelector('.photos[data-ms="' + ms + '"]');
+      box.querySelector('.stage')?.remove();
+      const st = el('div', {className: 'stage'});
+      const rows = files.map(f => {
+        const date = el('input', {type: 'date', value: localToday(), 'aria-label': 'วันที่ทำงาน / Work date'});
+        const cap = el('input', {type: 'text', maxLength: 200, placeholder: 'คำอธิบายรูป (≤200) / Caption', 'aria-label': 'Caption'});
+        const err = el('div', {className: 'serr'});
+        st.append(el('div', {className: 'srow'}, el('div', {className: 'fname', textContent: f.name}), el('label', {}, 'วันที่ / Date', date), el('label', {}, 'คำอธิบาย / Caption', cap), err));
+        return {f, date, cap, err};
+      });
+      const prog = el('span', {className: 'sprog'});
+      const go = el('button', {type: 'button', className: 'button primary', textContent: 'อัปโหลด / Upload'});
+      const cancel = el('button', {type: 'button', className: 'button', textContent: 'ยกเลิก / Cancel'});
+      cancel.addEventListener('click', () => st.remove());
+      go.addEventListener('click', async () => {
+        go.disabled = cancel.disabled = true;
+        let ok = 0, n = 0;
+        for (const r of rows) {
+          n++; r.err.textContent = ''; prog.textContent = 'กำลังอัปโหลด ' + n + '/' + rows.length + ' … / Uploading';
+          try { await uploadOne(ms, r); ok++; r.err.textContent = ''; r.f = null; }
+          catch (e) { r.err.textContent = e.userMsg || ('ไม่สำเร็จ / Failed: ' + e.message); }
+          await new Promise(res => setTimeout(res, 0));
+        }
+        prog.textContent = 'เสร็จ ' + ok + '/' + rows.length + ' / Done';
+        go.disabled = cancel.disabled = false;
+        await loadPhotos();
+        const b2 = document.querySelector('.photos[data-ms="' + ms + '"]');
+        if (ok === rows.length) b2.querySelector('.stage')?.remove();
+      });
+      st.append(el('div', {className: 'sbar'}, go, cancel, prog));
+      box.append(st);
+      st.scrollIntoView({block: 'nearest'});
+    }
+    async function toBlob(file){
+      if (file.type && !file.type.startsWith('image/')) { const e = new Error('not_image'); e.userMsg = 'ไม่ใช่ไฟล์รูปภาพ / Not an image file'; throw e; }
+      let bmp;
+      try { bmp = await createImageBitmap(file, {imageOrientation: 'from-image'}); }
+      catch (_) { try { bmp = await createImageBitmap(file); } catch (e2) { const e = new Error('decode'); e.userMsg = MSG_HEIC; throw e; } }
+      const longest = Math.max(bmp.width, bmp.height);
+      // Already small enough (<=1600px and <=2 MB, a type the server accepts): upload unchanged, no recompress.
+      if (longest <= MAX_SIDE && file.size <= SERVER_MAX && ['image/jpeg','image/png','image/webp'].includes(file.type)) { bmp.close?.(); return file; }
+      const k = Math.min(1, MAX_SIDE / longest);
+      const w = Math.max(1, Math.round(bmp.width * k)), h = Math.max(1, Math.round(bmp.height * k));
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(bmp, 0, 0, w, h); bmp.close?.();
+      let q = JPEG_Q, blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', q));
+      while (blob && blob.size > SERVER_MAX && q > 0.4) { q -= 0.1; blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', q)); }
+      if (!blob) { const e = new Error('encode'); e.userMsg = MSG_HEIC; throw e; }
+      if (blob.size > MAX_AFTER || blob.size > SERVER_MAX) { const e = new Error('too_big'); e.userMsg = 'รูปใหญ่เกินไปหลังย่อ / Photo still too large after resizing'; throw e; }
+      return blob;
+    }
+    async function uploadOne(ms, r){
+      const blob = await toBlob(r.f);
+      const date = r.date.value || localToday();
+      const qs = new URLSearchParams({date, caption: r.cap.value.trim()});
+      if (ms !== '_general') qs.set('milestone', ms);
+      const res = await fetch(PHOTO_API + '?' + qs, {method: 'POST', headers: {'X-Edit-Pin': getPin() || '', 'Content-Type': blob.type || 'image/jpeg'}, body: blob});
+      if (res.ok) return;
+      const e = new Error('upload_' + res.status);
+      if (res.status === 401) { sessionStorage.removeItem('trackerPin'); applyLock(); e.userMsg = MSG_WRONG; }
+      else if (res.status === 429) e.userMsg = MSG_LIMIT;
+      else if (res.status === 409) e.userMsg = 'ครบจำนวนรูปที่อนุญาตแล้ว / Photo limit reached';
+      else if (res.status === 413) e.userMsg = 'รูปใหญ่เกิน 2 MB / Photo over 2 MB';
+      else if (res.status === 415) e.userMsg = 'ไฟล์นี้ไม่ใช่รูป JPEG/PNG/WebP / Unsupported image type';
+      throw e;
+    }
+    let lbPhoto = null;
+    function openLightbox(p){
+      lbPhoto = p;
+      const img = document.getElementById('lbImg'); img.src = PHOTO_API + '/' + p.id; img.alt = p.caption || p.date;
+      document.getElementById('lbCap').textContent = p.date + (p.caption ? ' · ' + p.caption : '');
+      document.getElementById('lbDel').style.display = getPin() ? '' : 'none';
+      document.getElementById('lightbox').classList.add('open');
+    }
+    const closeLightbox = () => { document.getElementById('lightbox').classList.remove('open'); document.getElementById('lbImg').removeAttribute('src'); lbPhoto = null; };
+    document.getElementById('lbClose').addEventListener('click', closeLightbox);
+    document.getElementById('lightbox').addEventListener('click', e => { if (e.target.id === 'lightbox') closeLightbox(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+    document.getElementById('lbDel').addEventListener('click', async () => {
+      if (!lbPhoto || !confirm('ลบรูปนี้ใช่หรือไม่? / Delete this photo?')) return;
+      const res = await fetch(PHOTO_API + '/' + lbPhoto.id, {method: 'DELETE', headers: {'X-Edit-Pin': getPin() || ''}});
+      if (res.status === 401) { sessionStorage.removeItem('trackerPin'); applyLock(); alert(MSG_WRONG); return; }
+      if (!res.ok) { alert('ลบไม่สำเร็จ / Delete failed'); return; }
+      closeLightbox(); await loadPhotos();
+    });
+
     render();
+    loadPhotos();
     loadFromServer().catch(err => {
       console.error(err);
       setSaveStatus('โหลดจากเซิร์ฟเวอร์ไม่สำเร็จ — แสดงค่าเริ่มต้น', 'error');

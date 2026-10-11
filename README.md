@@ -28,6 +28,12 @@
 - Free-plan limits (no paid plan needed): KV free = 1 GB storage, 1,000 writes/day, 100,000 reads/day, 1,000 lists/day, 25 MB/value. At ~300 KB/photo 1 GB is ~3,000 photos (cap is 400). Each upload costs ~2 KV writes (image + index) plus a wrong-PIN counter write only on failures, so **1,000 writes/day is about 400-500 photos/day max**, and Save/backups (4 writes) and PIN counters share that same budget. Each upload also does one KV list (total-count check).
 - Captions are rendered as text only (never HTML). The PIN stays in `sessionStorage`.
 
+## Public photo timeline (`/progress/`)
+- Read-only page for anyone with the link: photos grouped by **work date**, newest first, date-jump control (chips on desktop, a select on phones), tap to enlarge, lazy images, 24 per page + "Load more", Thai empty state. No PIN, no upload, no edit controls, and it does not link to the tracker. The tracker page has a small link to it.
+- Data comes from `GET /api/progress?offset=0&limit=24` which returns **only** `{photos:[{id,date,caption,milestoneTitle}]}` (`milestoneTitle` is `null` for photos with no milestone). It reads the `photos:index:*` keys only - never the `milestones` records - and the title comes from a fixed map in `functions/_lib/titles.js`. No notes, done flags, payment info or other dates ever appear. Photo bytes are `GET /api/photos/<id>`.
+- Both the page and the API are `noindex` for now (`<meta name="robots" content="noindex">`, and `X-Robots-Tag` via `public/_headers` for `/*` and `/progress/*`). Remove them only when Taky decides to make the page discoverable.
+- Anyone who has a photo id URL can open that image (ids are random UUIDs; the list is public on purpose). Don't upload photos you don't want public.
+
 ## Deploy
 1. Cloudflare dashboard: KV namespace; Pages project from this GitHub repo (the Cloudflare GitHub app needs access to this repo). Build command: none; output dir: `public`.
 2. Pages > Settings > Bindings: KV namespace binding `MILESTONES` (Production + Preview). `wrangler.toml` already carries the namespace id; do not change its layout.
@@ -39,4 +45,4 @@
 `cp .dev.vars.example .dev.vars` (fill a throwaway hash), then `npx wrangler pages dev public --kv MILESTONES --port 8788`. Never commit `.dev.vars` or a real PIN.
 
 ## Tests
-`PORT=8811 PIN=<throwaway> ./test/run.sh` (needs Playwright in `PW_DIR`, default /workspace/pw-test: `npm i playwright && npx playwright install chromium`) seeds a fresh local KV from `seed/milestones.json`, starts wrangler itself, asserts every API case, then runs the Playwright UI suite (`test/ui.cjs`, real 4000x3000 JPEG, 390 px mobile checks), and exits non-zero on any failure.
+`PORT=8811 PIN=<throwaway> ./test/run.sh` (needs Playwright in `PW_DIR`, default /workspace/pw-test: `npm i playwright && npx playwright install chromium`) seeds a fresh local KV from `seed/milestones.json`, starts wrangler itself, asserts every API case, then runs the Playwright UI suites (`test/ui.cjs` tracker upload with a real 4000x3000 JPEG and 390 px mobile checks; `test/ui-progress.cjs` timeline at 390x844 and 1280x800 with privacy checks, seeded through the real upload API; optional real photos from `SEED_DIR`), and exits non-zero on any failure.

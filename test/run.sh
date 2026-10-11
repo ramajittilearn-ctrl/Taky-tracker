@@ -11,7 +11,7 @@ HASH=$(printf '%s' "$PIN" | sha256sum | cut -d' ' -f1)
 STATE=$(mktemp -d); LOG=$STATE/server.log
 B=http://localhost:$PORT
 FAILS=0; PASSES=0
-export MAX_PHOTOS_TOTAL_TEST=14
+export MAX_PHOTOS_TOTAL_TEST=30
 
 kvget(){ $W kv key get --namespace-id MILESTONES --local --persist-to "$STATE" "$1" 2>/dev/null; }
 kvdel(){ $W kv key delete --namespace-id MILESTONES --local --persist-to "$STATE" "$1" >/dev/null 2>&1; }
@@ -180,15 +180,15 @@ check "deleted photo gone from list" 200 '' -- "$B/api/photos?milestone=2"
 assert "index no longer lists it" $(grep -q "$ID1" /tmp/tt_body && echo 1 || echo 0)
 check "DELETE again -> 404" 404 not_found -- -X DELETE "$B/api/photos/$ID1" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN"
 for i in $ID2 $ID3 $ID4 $ID5; do curl -s -o /dev/null -X DELETE "$B/api/photos/$i" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN"; done
-echo "-- caps (total cap set to $MAX_PHOTOS_TOTAL_TEST via MAX_PHOTOS_TOTAL)"
+echo "-- caps (total cap lowered to $MAX_PHOTOS_TOTAL_TEST via MAX_PHOTOS_TOTAL for the test)"
 for i in $(seq 1 12); do curl -s -o /dev/null -X POST "$B/api/photos?milestone=2" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN" --data-binary @$PH/ok.jpg; done
 post "13th photo on one milestone -> 409" 409 milestone_photo_limit 1.1.1.1 $PIN "milestone=2" $PH/ok.jpg
-post "photo 13 (ms 3) ok" 201 '' 1.1.1.1 $PIN "milestone=3" $PH/ok.jpg
-post "photo 14 (ms 3) ok -> total 14" 201 '' 1.1.1.1 $PIN "milestone=3" $PH/ok.jpg
-post "15th photo overall -> 409 total cap" 409 total_photo_limit 1.1.1.1 $PIN "milestone=4" $PH/ok.jpg
+for i in $(seq 1 12); do curl -s -o /dev/null -X POST "$B/api/photos?milestone=3" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN" --data-binary @$PH/ok.jpg; done
+for i in $(seq 1 6); do curl -s -o /dev/null -X POST "$B/api/photos?milestone=4" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN" --data-binary @$PH/ok.jpg; done
+post "31st photo overall -> 409 total cap" 409 total_photo_limit 1.1.1.1 $PIN "milestone=5" $PH/ok.jpg
 post "general photo over total cap -> 409" 409 total_photo_limit 1.1.1.1 $PIN "" $PH/ok.jpg
 curl -s "$B/api/photos" | python3 -c "import json,sys;print('\n'.join(p['id'] for p in json.load(sys.stdin)['photos']))" > /tmp/tt_ids
-assert "14 photos listed" $([ "$(wc -l < /tmp/tt_ids)" = 14 ] && echo 0 || echo 1)
+assert "30 photos listed" $([ "$(wc -l < /tmp/tt_ids)" = 30 ] && echo 0 || echo 1)
 while read i; do curl -s -o /dev/null -X DELETE "$B/api/photos/$i" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN"; done < /tmp/tt_ids
 check "all cleaned" 200 '"photos":\[\]' -- "$B/api/photos"
 echo "-- lockout still holds on photo endpoints"
@@ -207,7 +207,52 @@ if [ -d "$PW_DIR/node_modules/playwright" ]; then
   BASE=$B PIN=$PIN PW_DIR=$PW_DIR SEED_DIR=${SEED_DIR:-/workspace/construction-photos/2026-10-11} node test/ui.cjs
   assert "Playwright UI suite" $?
 else echo "FAIL: playwright not found in PW_DIR=$PW_DIR (npm i playwright && npx playwright install chromium)"; FAILS=$((FAILS+1)); fi
-#__PROGRESS_TESTS__
+echo "== /progress/ timeline (public, privacy)"
+reset; SEED_DIR=${SEED_DIR:-/workspace/construction-photos/2026-10-11}
+check "progress API empty state" 200 '^\{"photos":\[\]\}$' -- $B/api/progress
+check "progress page served" 200 'noindex' -- $B/progress/
+MODE=empty BASE=$B PW_DIR=$PW_DIR node test/ui-progress.cjs; assert "timeline UI empty state (both viewports)" $?
+CAPTH="เตรียมพื้นที่และปรับระดับดินด้วยรถแบ็คโฮ / Soil clearing and levelling with excavator"
+CAPQ=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$CAPTH")
+SEEDS=(); if [ -d "$SEED_DIR" ]; then for f in "$SEED_DIR"/*.jp*g; do SEEDS+=("$f"); done; fi
+while [ ${#SEEDS[@]} -lt 6 ]; do SEEDS+=(/tmp/ph/ok.jpg); done
+n=0; for f in "${SEEDS[@]:0:6}"; do n=$((n+1)); check "seed real photo $n via upload API (2026-10-11, no milestone)" 201 '"id"' -- -X POST "$B/api/photos?date=2026-10-11&caption=$CAPQ" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN" --data-binary @"$f"; done
+for k in 1 2; do check "seed 2026-10-10 photo $k (milestone 2)" 201 '' -- -X POST "$B/api/photos?milestone=2&date=2026-10-10&caption=Pile%20prep%20$k" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN" --data-binary @/tmp/ph/ok.jpg; done
+check "seed 2026-10-05 photo (general)" 201 '' -- -X POST "$B/api/photos?date=2026-10-05&caption=Site%20visit" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN" --data-binary @/tmp/ph/ok.jpg
+for k in $(seq 1 18); do curl -s -o /dev/null -X POST "$B/api/photos?date=2026-09-$(printf %02d $((k+1)))&caption=Older%20$k" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN" --data-binary @/tmp/ph/ok.jpg; done
+check "progress API page 1 (24)" 200 '"photos"' -- "$B/api/progress"
+cp /tmp/tt_body /tmp/tt_prog1
+assert "progress: only key 'photos'; each photo only {id,date,caption,milestoneTitle}; 24 rows; newest first" $(python3 - <<'PY'
+import json
+d=json.load(open('/tmp/tt_prog1'))
+p=d['photos']; dates=[x['date'] for x in p]
+ok = list(d.keys())==['photos'] and len(p)==24 and all(sorted(x.keys())==['caption','date','id','milestoneTitle'] for x in p) and dates==sorted(dates,reverse=True)
+print(0 if ok else 1)
+PY
+)
+assert "progress: general photos have milestoneTitle null, milestone photos a title" $(python3 - <<'PY'
+import json
+p=json.load(open('/tmp/tt_prog1'))['photos']
+g=[x for x in p if x['date']=='2026-10-11']; m=[x for x in p if x['date']=='2026-10-10']
+print(0 if len(g)==6 and all(x['milestoneTitle'] is None for x in g) and len(m)==2 and all(isinstance(x['milestoneTitle'],str) and x['milestoneTitle'] for x in m) else 1)
+PY
+)
+check "progress offset=24 -> remaining 3" 200 '"photos"' -- "$B/api/progress?offset=24&limit=24"
+assert "progress page 2 has 3" $(python3 -c "import json;print(0 if len(json.load(open('/tmp/tt_body'))['photos'])==3 else 1)")
+check "progress limit capped at 50" 200 '"photos"' -- "$B/api/progress?limit=9999"
+assert "limit cap <=50 rows" $(python3 -c "import json;print(0 if len(json.load(open('/tmp/tt_body'))['photos'])<=50 else 1)")
+check "progress needs no PIN, POST -> 405 JSON" 405 method_not_allowed -- -X POST $B/api/progress
+PRIV='note|done|ชำระ|จ่าย|บาท|paid|amount|[0-9]{3},[0-9]{3}'
+curl -s "$B/api/progress?limit=50" > /tmp/tt_prog_all; assert "API response has no note/done/payment text" $(grep -Eiq "$PRIV" /tmp/tt_prog_all && echo 1 || echo 0)
+curl -s "$B/progress/" > /tmp/tt_prog_page; assert "/progress/ HTML has no note/done/payment text" $(grep -Eiq "$PRIV" /tmp/tt_prog_page && echo 1 || echo 0)
+assert "/progress/ has no links (nothing links back to tracker)" $(grep -q 'href=' /tmp/tt_prog_page && echo 1 || echo 0)
+assert "tracker page links to /progress/" $(curl -s $B/ | grep -q 'href="/progress/"' && echo 0 || echo 1)
+assert "progress.js never reads milestone records" $(grep -Eq "get\(['\"]milestones|api/milestones" functions/api/progress.js && echo 1 || echo 0)
+assert "public/ only holds index.html, progress/index.html, _headers" $(./test/public-clean.sh >/dev/null && echo 0 || echo 1)
+MODE=full BASE=$B PW_DIR=$PW_DIR node test/ui-progress.cjs; assert "timeline UI full suite (390x844 and 1280x800)" $?
+curl -s "$B/api/photos" | python3 -c "import json,sys;print('\n'.join(p['id'] for p in json.load(sys.stdin)['photos']))" > /tmp/tt_ids
+while read i; do curl -s -o /dev/null -X DELETE "$B/api/photos/$i" -H "CF-Connecting-IP: 1.1.1.1" -H "X-Edit-Pin: $PIN"; done < /tmp/tt_ids
+
 
 echo; echo "RESULT: $PASSES passed, $FAILS failed"
 [ "$FAILS" = 0 ]

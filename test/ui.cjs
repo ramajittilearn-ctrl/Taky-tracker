@@ -74,7 +74,21 @@ const BIG = '/tmp/ph/big4000x3000.jpg';
   // normal Save after reset (18 ids -> passes the <15 guard)
   await page.click('#saveButton'); await page.waitForFunction(() => /บันทึกแล้ว/.test(document.getElementById('saveStatus').textContent), null, { timeout: 8000 }).catch(() => {});
   ok('normal Save works', /บันทึกแล้ว/.test(await page.textContent('#saveStatus')), await page.textContent('#saveStatus'));
-  //__UI_EXTRA__
+  const seedFiles = fs.existsSync(process.env.SEED_DIR || '/nonexistent') ? fs.readdirSync(process.env.SEED_DIR).filter((f) => /\.jpe?g$/i.test(f)) : [];
+  if (seedFiles.length) {
+    const orig = process.env.SEED_DIR + '/' + seedFiles[0];
+    await page.evaluate(() => { window.__uploads.length = 0; });
+    const chP = page.waitForEvent('filechooser');
+    await page.click('#generalPhotos .add');
+    await (await chP).setFiles([orig]);
+    await page.waitForSelector('#generalPhotos .stage .srow');
+    await page.fill('#generalPhotos .stage input[type=text]', 'เตรียมพื้นที่และปรับระดับดินด้วยรถแบ็คโฮ / Soil clearing and levelling with excavator');
+    await page.click('#generalPhotos .stage .sbar .primary');
+    await page.waitForSelector('#generalPhotos .pgrid img');
+    const sent = (await page.evaluate(() => window.__uploads))[0];
+    ok('real site photo (1477x1108, <2MB) uploaded unchanged, no milestone (general box)', sent && sent.size === fs.statSync(orig).size && !/milestone=/.test(sent.url), sent);
+    ok('390px: no overflow with general photos', (await overflow(page)) <= 0, await overflow(page));
+  }
   ok('no console errors on the tracker page', errors.length === 0, errors);
   // cleanup photos created by this test
   const list = (await (await fetch(BASE + '/api/photos')).json()).photos;

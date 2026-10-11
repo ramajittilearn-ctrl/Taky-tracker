@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta name="robots" content="noindex">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ความคืบหน้าหน้างาน · Construction progress</title>
+  <style>
+    :root{--ink:#17253a;--muted:#66758a;--navy:#153c61;--blue:#e8f3fc;--blue2:#2c75a8;--line:#d8e1eb;--bg:#f2f6fa;--card:#fff}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:"Sarabun","Noto Sans Thai",system-ui,sans-serif;line-height:1.55}
+    .wrap{max-width:1180px;margin:auto;padding:20px 14px 56px}.hero{background:linear-gradient(125deg,#102d4a,#216596);color:#fff;border-radius:18px;padding:24px 22px;box-shadow:0 13px 35px #12365722}.hero h1{font-size:clamp(1.5rem,5vw,2.2rem);line-height:1.2;margin:0 0 6px}.hero p{margin:0;color:#dbeafa}
+    .jump{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0;margin-top:8px}.chips{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:4px;-webkit-overflow-scrolling:touch}.chip{flex:0 0 auto;scroll-snap-align:start;min-height:44px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink);font:inherit;font-size:.9rem;cursor:pointer}.chip:hover{background:#f5f8fb}.chip small{color:var(--muted);margin-left:4px}
+    .jump select{display:none;width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:#fff;color:var(--ink)}
+    @media(max-width:570px){.chips{display:none}.jump select{display:block}}
+    .day{margin-top:22px;scroll-margin-top:70px}.day h2{font-size:1.2rem;margin:0 0 4px;padding-bottom:6px;border-bottom:2px solid var(--line)}.day h2 small{color:var(--muted);font-weight:400;font-size:.85rem;margin-left:6px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:10px}.item{margin:0;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}.item button{display:block;width:100%;min-height:44px;padding:0;border:0;background:#eef2f6;cursor:pointer}.item img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}.item figcaption{padding:8px 10px;font-size:.85rem;overflow-wrap:anywhere}.item .ms{display:inline-block;margin-top:4px;font-size:.75rem;padding:1px 8px;border-radius:999px;background:var(--blue);color:#245e8e}
+    .empty{margin-top:24px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 18px;text-align:center;color:var(--muted)}
+    .more{display:block;margin:24px auto 0;min-height:44px;min-width:200px;padding:10px 22px;border:1px solid var(--navy);border-radius:10px;background:var(--navy);color:#fff;font:inherit;font-weight:600;cursor:pointer}.more[hidden]{display:none}
+    .lightbox{position:fixed;inset:0;background:#0b1a2ccc;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:60;padding:12px;gap:10px}.lightbox.open{display:flex}.lightbox img{max-width:100%;max-height:72vh;border-radius:8px;background:#000}.lightbox .lcap{color:#fff;text-align:center;max-width:640px;overflow-wrap:anywhere}.lightbox button{min-height:44px;min-width:44px;padding:8px 22px;border:0;border-radius:10px;background:#fff;color:var(--navy);font:inherit;font-weight:600;cursor:pointer}
+    .foot{color:var(--muted);font-size:.8rem;margin-top:28px;text-align:center}
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <header class="hero">
+    <h1>ความคืบหน้าหน้างาน</h1>
+    <p>Construction progress · รูปถ่ายหน้างานเรียงตามวันที่ทำงาน (ใหม่สุดก่อน)</p>
+  </header>
+  <nav class="jump" id="jump" aria-label="ข้ามไปยังวันที่ / Jump to date" hidden>
+    <div class="chips" id="chips"></div>
+    <select id="jumpSel" aria-label="ข้ามไปยังวันที่ / Jump to date"></select>
+  </nav>
+  <div class="empty" id="empty" hidden>ยังไม่มีรูปความคืบหน้า — เมื่อมีการอัปโหลดรูปหน้างาน จะแสดงที่นี่<br><small>No progress photos yet.</small></div>
+  <div id="days"></div>
+  <button class="more" id="more" type="button" hidden>โหลดเพิ่ม / Load more</button>
+  <p class="foot" id="status" aria-live="polite"></p>
+</main>
+<div class="lightbox" id="lb" role="dialog" aria-modal="true"><img id="lbImg" alt=""><div class="lcap" id="lbCap"></div><button type="button" id="lbClose">ปิด / Close</button></div>
+<script>
+  const PAGE = Math.min(24, parseInt(new URLSearchParams(location.search).get('n'), 10) || 24);
+  const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const MONTHS_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  let photos = [], offset = 0, more = false;
+  const $ = id => document.getElementById(id);
+  const parts = iso => iso.split('-').map(Number);
+  const longDate = iso => { const [y, m, d] = parts(iso); return d + ' ' + MONTHS_FULL[m - 1] + ' ' + (y + 543); };
+  const shortDate = iso => { const [y, m, d] = parts(iso); return d + ' ' + MONTHS[m - 1] + ' ' + String((y + 543) % 100).padStart(2, '0'); };
+  function el(tag, props, ...kids){ const e = document.createElement(tag); Object.assign(e, props || {}); for (const k of kids) e.append(k); return e; }
+  function render(){
+    const days = $('days'); days.textContent = '';
+    $('empty').hidden = photos.length > 0;
+    const byDate = new Map();
+    for (const p of photos) { if (!byDate.has(p.date)) byDate.set(p.date, []); byDate.get(p.date).push(p); }
+    const dates = [...byDate.keys()]; // already newest first
+    for (const d of dates) {
+      const sec = el('section', {className: 'day', id: 'd-' + d});
+      sec.append(el('h2', {}, document.createTextNode(longDate(d)), el('small', {textContent: d + ' · ' + byDate.get(d).length})));
+      const grid = el('div', {className: 'grid'});
+      for (const p of byDate.get(d)) {
+        const img = el('img', {src: '/api/photos/' + p.id, loading: 'lazy', alt: p.caption || ('รูปหน้างาน ' + d)});
+        const btn = el('button', {type: 'button', 'aria-label': 'ดูรูปใหญ่ / Enlarge'}, img);
+        btn.addEventListener('click', () => openLb(p));
+        const cap = el('figcaption', {});
+        if (p.caption) cap.append(document.createTextNode(p.caption));
+        if (p.milestoneTitle) { cap.append(document.createElement('br'), el('span', {className: 'ms', textContent: p.milestoneTitle})); }
+        grid.append(el('figure', {className: 'item'}, btn, cap));
+      }
+      sec.append(grid); days.append(sec);
+    }
+    $('jump').hidden = dates.length === 0;
+    $('chips').textContent = ''; $('jumpSel').textContent = '';
+    $('jumpSel').append(el('option', {value: '', textContent: 'ข้ามไปวันที่… / Jump to date…'}));
+    for (const d of dates) {
+      const chip = el('button', {type: 'button', className: 'chip'}, document.createTextNode(shortDate(d)), el('small', {textContent: byDate.get(d).length}));
+      chip.addEventListener('click', () => jump(d));
+      $('chips').append(chip);
+      $('jumpSel').append(el('option', {value: d, textContent: longDate(d) + ' (' + byDate.get(d).length + ')'}));
+    }
+    $('more').hidden = !more;
+  }
+  function jump(d){ const s = $('d-' + d); if (s) s.scrollIntoView({behavior: 'smooth', block: 'start'}); }
+  $('jumpSel').addEventListener('change', e => { if (e.target.value) jump(e.target.value); e.target.value = ''; });
+  async function load(){
+    $('more').disabled = true; $('status').textContent = '';
+    try {
+      const res = await fetch('/api/progress?offset=' + offset + '&limit=' + (PAGE + 1)); // one extra row tells us if there is a next page
+      if (!res.ok) throw new Error('http_' + res.status);
+      const list = (await res.json()).photos || [];
+      more = list.length > PAGE;
+      photos = photos.concat(list.slice(0, PAGE)); offset += Math.min(list.length, PAGE);
+      render();
+    } catch (e) { console.warn(e); $('status').textContent = 'โหลดรูปไม่สำเร็จ ลองรีเฟรช / Could not load photos, please refresh'; }
+    $('more').disabled = false;
+  }
+  $('more').addEventListener('click', load);
+  function openLb(p){ $('lbImg').src = '/api/photos/' + p.id; $('lbImg').alt = p.caption || p.date; $('lbCap').textContent = longDate(p.date) + (p.caption ? ' · ' + p.caption : '') + (p.milestoneTitle ? ' · ' + p.milestoneTitle : ''); $('lb').classList.add('open'); }
+  const closeLb = () => { $('lb').classList.remove('open'); $('lbImg').removeAttribute('src'); };
+  $('lbClose').addEventListener('click', closeLb);
+  $('lb').addEventListener('click', e => { if (e.target.id === 'lb') closeLb(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLb(); });
+  load();
+</script>
+</body>
+</html>
